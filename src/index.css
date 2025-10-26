@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom utilities for mobile optimization */
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  
+  /* Improve touch targets on mobile */
+  @media (max-width: 640px) {
+    button, a, input, select, textarea {
+      min-height: 44px;
+    }
+  }
+  
+  /* Smooth scrolling for mobile navigation */
+  .overflow-x-auto {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Animation utilities for dropdowns */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes zoom-in-95 {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .animate-in {
+    animation-duration: 200ms;
+    animation-fill-mode: both;
+  }
+  
+  .fade-in-0 {
+    animation-name: fade-in;
+  }
+  
+  .zoom-in-95 {
+    animation-name: zoom-in-95;
+  }
+  
+  /* Ensure proper stacking for dropdowns */
+  .language-switcher {
+    z-index: 50;
+  }
+  
+  .user-profile-dropdown {
+    z-index: 40;
+  }
+  
+  /* Prevent text selection on dropdown buttons */
+  .language-switcher button,
+  .user-profile-dropdown button {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+  
+  /* Mobile-specific optimizations */
+  @media (max-width: 768px) {
+    .mobile-card {
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }
+    
+    .mobile-text {
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+    }
+    
+    .mobile-button {
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      min-height: 44px;
+    }
+    
+    .mobile-grid {
+      gap: 1rem;
+    }
+    
+    .mobile-header {
+      padding: 1rem;
+    }
+    
+    .mobile-stats {
+      padding: 0.5rem;
+      font-size: 0.75rem;
+    }
+  }
+  
+  /* Touch-friendly interactions */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Mobile navigation improvements */
+  @media (max-width: 768px) {
+    .mobile-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+      padding: 0.5rem;
+      z-index: 50;
+    }
+  }
+}
