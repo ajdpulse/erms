@@ -48,6 +48,8 @@ interface PayCommissionRecord {
   fifth_pay_comission_comment: string | null;
   sixth_pay_comission_comment: string | null;
   seventh_pay_comission_comment: string | null;
+  pay_progress_scheme: string | null;
+  department_progress_scheme: string | null;
   fourth_pay_comission_date: string | null;
   fifth_pay_comission_date: string | null;
   sixth_pay_comission_date: string | null;
@@ -63,15 +65,56 @@ interface ClerkData {
 export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
+  
+  // Comprehensive state persistence system
+  const STORAGE_KEYS = {
+    FILTERS: 'pay-commission-filters',
+    ACTIVE_TAB: 'pay-commission-active-tab',
+    MODAL_STATE: 'pay-commission-modal-state',
+    PAGINATION: 'pay-commission-pagination'
+  };
+
+  // Get initial state from localStorage
+  const getInitialState = () => {
+    try {
+      const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
+      const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+      const savedPagination = localStorage.getItem(STORAGE_KEYS.PAGINATION);
+      
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        return {
+          searchTerm: parsed.searchTerm || '',
+          selectedDepartment: parsed.selectedDepartment || '',
+          selectedClerk: parsed.selectedClerk || '',
+          selectedStatus: parsed.selectedStatus || '',
+          activeTab: savedTab || 'inProgress',
+          currentPage: savedPagination ? JSON.parse(savedPagination).currentPage : 1
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load state from localStorage:', error);
+    }
+    return {
+      searchTerm: '',
+      selectedDepartment: '',
+      selectedClerk: '',
+      selectedStatus: '',
+      activeTab: 'inProgress',
+      currentPage: 1
+    };
+  };
+
+  const initialState = getInitialState();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedClerk, setSelectedClerk] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClerk, setSelectedClerk] = useState(initialState.selectedClerk);
+  const [selectedDepartment, setSelectedDepartment] = useState(initialState.selectedDepartment);
+  const [selectedStatus, setSelectedStatus] = useState(initialState.selectedStatus);
+  const [searchTerm, setSearchTerm] = useState(initialState.searchTerm);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<PayCommissionRecord | null>(null);
-  const [activeTab, setActiveTab] = useState<'inProgress' | 'pending' | 'completed'>('inProgress');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState(initialState.activeTab as 'inProgress' | 'pending' | 'completed');
+  const [currentPage, setCurrentPage] = useState(initialState.currentPage);
   const recordsPerPage = 20;
   
   // Data states
@@ -80,14 +123,89 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
   const [departments, setDepartments] = useState<string[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<PayCommissionRecord[]>([]);
 
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Save state
+  const saveState = () => {
+    try {
+      const filterState = {
+        searchTerm,
+        selectedDepartment,
+        selectedClerk,
+        selectedStatus,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(filterState));
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+      localStorage.setItem(STORAGE_KEYS.PAGINATION, JSON.stringify({ currentPage, timestamp: Date.now() }));
+    } catch (error) {
+      console.warn('Failed to save state to localStorage:', error);
+    }
+  };
+
   useEffect(() => {
     fetchAllData();
+    
+    setTimeout(() => {
+      setPersistenceEnabled(true);
+      setIsInitialized(true);
+    }, 100);
+
+    const handleBeforeUnload = () => {
+      if (persistenceEnabled) {
+        saveState();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []);
+
+  // Load modal state (if any) when component initializes
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.MODAL_STATE);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.showEditModal && parsed.editingRecord) {
+          setEditingRecord(parsed.editingRecord);
+          setShowEditModal(true);
+        }
+      }
+    } catch (error) {
+      // ignore
+    }
+  }, []);
+
+  // Save modal state when it changes (after initialization)
+  const saveModalState = (modalState: { showEditModal: boolean; editingRecord: PayCommissionRecord | null }) => {
+    try {
+      const stateWithTimestamp = { ...modalState, timestamp: Date.now() };
+      localStorage.setItem(STORAGE_KEYS.MODAL_STATE, JSON.stringify(stateWithTimestamp));
+    } catch (error) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (isInitialized) {
+      saveModalState({ showEditModal, editingRecord });
+    }
+  }, [showEditModal, editingRecord, isInitialized]);
 
   useEffect(() => {
     filterRecords();
-    setCurrentPage(1); // Reset to first page when filters change
   }, [payCommissionRecords, selectedClerk, selectedDepartment, selectedStatus, searchTerm, userRole, userProfile]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      saveState();
+    }
+  }, [searchTerm, selectedDepartment, selectedClerk, selectedStatus, activeTab, currentPage, isInitialized]);
 
   const fetchAllData = async () => {
     setIsLoading(true);
@@ -128,6 +246,8 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
           fifth_pay_comission_comment,
           sixth_pay_comission_comment,
           seventh_pay_comission_comment,
+          pay_progress_scheme,
+          department_progress_scheme,
           fourth_pay_comission_date,
           fifth_pay_comission_date,
           sixth_pay_comission_date,
@@ -288,6 +408,8 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
           fifth_pay_comission_comment: editingRecord.fifth_pay_comission_comment,
           sixth_pay_comission_comment: editingRecord.sixth_pay_comission_comment,
           seventh_pay_comission_comment: editingRecord.seventh_pay_comission_comment,
+          pay_progress_scheme: editingRecord.pay_progress_scheme,
+          department_progress_scheme: editingRecord.department_progress_scheme,
           fourth_pay_comission_date: editingRecord.fourth_pay_comission_date,
           fifth_pay_comission_date: editingRecord.fifth_pay_comission_date,
           sixth_pay_comission_date: editingRecord.sixth_pay_comission_date,
@@ -314,6 +436,34 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     setSelectedDepartment('');
     setSelectedClerk('');
     setSelectedStatus('');
+  };
+
+    const getStatusIcon = (status: string | null) => {
+    if (!status || status.trim() === '') {
+      return <span className="text-gray-400 text-lg">○</span>;
+    }
+
+    if (status === 'आहे (Available)' || status === 'होय (Yes)' || status === 'पूर्ण (Complete)') {
+      return <span className="text-green-600 text-lg">✓</span>;
+    }
+
+    if (status === 'नाही (Not Available)') {
+      return <span className="text-red-600 text-lg">✗</span>;
+    }
+
+    if (status === 'लागू नाही (Not Applicable)') {
+      return <span className="text-blue-600 text-lg">△</span>;
+    }
+
+    if (status === 'सुट आहे (Exempted)') {
+      return <span className="text-purple-600 text-lg">◊</span>;
+    }
+
+    if (status === 'इतर (Other)') {
+      return <span className="text-orange-600 text-lg">◈</span>;
+    }
+
+    return <span className="text-orange-500 text-lg">◐</span>;
   };
 
   const statusCounts = getStatusCounts();
@@ -540,6 +690,8 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">5th Pay Commission</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">6th Pay Commission</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">7th Pay Commission</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.payProgressScheme')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.departmentProgressScheme')}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.actions')}</th>
               </tr>
             </thead>
@@ -591,6 +743,16 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-green-600 text-lg">
                           {record.seventh_pay_comission ? '✓' : '○'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-green-600 text-lg">
+                          {getStatusIcon(record.pay_progress_scheme)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-green-600 text-lg">
+                          {getStatusIcon(record.department_progress_scheme)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -667,7 +829,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
       {/* Edit Modal - Placeholder for now */}
       {showEditModal && editingRecord && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">Edit Pay Commission Details</h3>
               <button
@@ -862,6 +1024,39 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       placeholder="Enter comment for 7th pay commission"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.payProgressScheme')}</label>
+                    <select
+                        value={editingRecord.pay_progress_scheme || ''}
+                        onChange={(e) => setEditingRecord({ ...editingRecord, pay_progress_scheme: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
+                      >
+                        <option value="">{t('retirementTracker.selectStatus')}</option>
+                        <option value="आहे (Available)">आहे (Available)</option>
+                        <option value="नाही (Not Available)">नाही (Not Available)</option>
+                        <option value="लागू नाही (Not Applicable)">लागू नाही (Not Applicable)</option>
+                        <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
+                        <option value="इतर (Other)">इतर (Other)</option>
+                      </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.departmentProgressScheme')}</label>
+                      <select
+                        value={editingRecord.department_progress_scheme || ''}
+                        onChange={(e) => setEditingRecord({ ...editingRecord, department_progress_scheme: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
+                      >
+                        <option value="">{t('retirementTracker.selectStatus')}</option>
+                        <option value="आहे (Available)">आहे (Available)</option>
+                        <option value="नाही (Not Available)">नाही (Not Available)</option>
+                        <option value="लागू नाही (Not Applicable)">लागू नाही (Not Applicable)</option>
+                        <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
+                        <option value="इतर (Other)">इतर (Other)</option>
+                      </select>
+                    </div>
+
                 </div>
                 
                 {/* General Comments */}

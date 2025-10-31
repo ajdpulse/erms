@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
+import {
   Users,
   Calendar,
   UserCheck,
@@ -74,21 +74,90 @@ interface ClerkData {
 
 export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'general' | 'education'>('general');
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedClerk, setSelectedClerk] = useState('');
-  const [selectedReason, setSelectedReason] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Comprehensive state persistence system
+  const STORAGE_KEYS = {
+    ACTIVE_TAB: 'employee-dashboard-active-tab',
+    FILTERS: 'employee-dashboard-filters',
+    PAGINATION: 'employee-dashboard-pagination',
+    MODAL_STATE: 'employee-dashboard-modal-state',
+    FORM_DATA: 'employee-dashboard-form-data'
+  };
+
+  // Get initial filter state from localStorage
+  const getInitialFilters = () => {
+    try {
+      const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        return {
+          searchTerm: parsed.searchTerm || '',
+          selectedDepartment: parsed.selectedDepartment || '',
+          selectedClerk: parsed.selectedClerk || '',
+          selectedReason: parsed.selectedReason || '',
+          selectedCadre: parsed.selectedCadre || ''
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load filters from localStorage:', error);
+    }
+    return {
+      searchTerm: '',
+      selectedDepartment: '',
+      selectedClerk: '',
+      selectedReason: '',
+      selectedCadre: ''
+    };
+  };
+
+  // Get initial pagination state from localStorage
+  const getInitialPagination = () => {
+    try {
+      const savedPagination = localStorage.getItem(STORAGE_KEYS.PAGINATION);
+      if (savedPagination) {
+        const parsed = JSON.parse(savedPagination);
+        return {
+          currentPage: parsed.currentPage || 1,
+          recordsPerPage: parsed.recordsPerPage || 20
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load pagination from localStorage:', error);
+    }
+    return {
+      currentPage: 1,
+      recordsPerPage: 20
+    };
+  };
+
+  function getInitialActiveTab() {
+    return localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB) || 'general';
+  }
+
+  // Initialize state with persisted values
+  const initialFilters = getInitialFilters();
+  const initialPagination = getInitialPagination();
+
+  const [searchTerm, setSearchTerm] = useState(initialFilters.searchTerm);
+  const [selectedDepartment, setSelectedDepartment] = useState(initialFilters.selectedDepartment);
+  const [selectedClerk, setSelectedClerk] = useState(initialFilters.selectedClerk);
+  const [selectedReason, setSelectedReason] = useState(initialFilters.selectedReason);
+  const [selectedCadre, setSelectedCadre] = useState(initialFilters.selectedCadre);
+  const [currentPage, setCurrentPage] = useState(initialPagination.currentPage);
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
-  const [recordsPerPage, setRecordsPerPage] = useState(20);
-  const [selectedCadre, setSelectedCadre] = useState('');
-  
+  const [recordsPerPage, setRecordsPerPage] = useState(initialPagination.recordsPerPage);
+
+  const [activeTab, setActiveTab] = useState(getInitialActiveTab());
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+  }, [activeTab]);
+
   // Modal persistence state management
   const getInitialModalState = () => {
     try {
-      const savedModalState = localStorage.getItem('erms-employee-modal-state');
+      const savedModalState = localStorage.getItem(STORAGE_KEYS.MODAL_STATE);
       if (savedModalState) {
         const parsed = JSON.parse(savedModalState);
         return {
@@ -143,7 +212,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
   const [showAddModal, setShowAddModal] = useState(initialModalState.showAddModal);
   const [showEditModal, setShowEditModal] = useState(initialModalState.showEditModal);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(initialModalState.editingEmployee);
-  
+
   // Data states
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [department, setDepartments] = useState<Department[]>([]);
@@ -155,11 +224,11 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
   // Function to calculate retirement date based on date of birth and Cadre
   const calculateRetirementDate = (dateOfBirth: string, Cadre: string) => {
-    
+
     if (!Cadre) return null;
-    
+
     const birthDate = new Date(dateOfBirth);
-    
+
     // Determine retirement age based on cadre
     let retirementAge = 60; // default
     if (Cadre.toLowerCase() === 'c') {
@@ -167,29 +236,29 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     } else if (Cadre.toLowerCase() === 'd') {
       retirementAge = 60;
     }
-    
+
     // Add retirement age to birth year
     const retirementDate = new Date(birthDate);
     retirementDate.setFullYear(birthDate.getFullYear() + retirementAge);
-    
+
     // Set to last day of that month
     // Check if birth date is the 1st
-      if (birthDate.getDate() === 1) {
-          // Set to last day of previous month
-            retirementDate.setMonth(retirementDate.getMonth(), 0);
-          } else {
-          // Set to last day of retirement month
-          retirementDate.setMonth(retirementDate.getMonth() + 1, 0);
-            }
+    if (birthDate.getDate() === 1) {
+      // Set to last day of previous month
+      retirementDate.setMonth(retirementDate.getMonth(), 0);
+    } else {
+      // Set to last day of retirement month
+      retirementDate.setMonth(retirementDate.getMonth() + 1, 0);
+    }
 
- 
+
     // retirementDate.setMonth(retirementDate.getMonth() + 1, 0);
-    
-     // Format date to YYYY-MM-DD
+
+    // Format date to YYYY-MM-DD
     const year = retirementDate.getFullYear();
     const month = (retirementDate.getMonth() + 1).toString().padStart(2, '0');
     const day = retirementDate.getDate().toString().padStart(2, '0');
-    
+
     return `${year}-${month}-${day}`;
   };
   const [persistenceEnabled, setPersistenceEnabled] = useState(false);
@@ -197,6 +266,37 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
   // Form state
   const [formData, setFormData] = useState<Partial<Employee>>(initialModalState.formData);
+
+  // Save filters to localStorage
+  const saveFilters = () => {
+    try {
+      const filterState = {
+        searchTerm,
+        selectedDepartment,
+        selectedClerk,
+        selectedReason,
+        selectedCadre,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(filterState));
+    } catch (error) {
+      console.warn('Failed to save filters to localStorage:', error);
+    }
+  };
+
+  // Save pagination to localStorage
+  const savePagination = () => {
+    try {
+      const paginationState = {
+        currentPage,
+        recordsPerPage,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.PAGINATION, JSON.stringify(paginationState));
+    } catch (error) {
+      console.warn('Failed to save pagination to localStorage:', error);
+    }
+  };
 
   // Save modal state to localStorage
   const saveModalState = (modalState: {
@@ -206,12 +306,16 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     formData: Partial<Employee>;
   }) => {
     try {
-      localStorage.setItem('erms-employee-modal-state', JSON.stringify(modalState));
-      
+      const stateWithTimestamp = {
+        ...modalState,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.MODAL_STATE, JSON.stringify(stateWithTimestamp));
+
       // Broadcast to other tabs
       window.dispatchEvent(new StorageEvent('storage', {
-        key: 'erms-employee-modal-state',
-        newValue: JSON.stringify(modalState),
+        key: STORAGE_KEYS.MODAL_STATE,
+        newValue: JSON.stringify(stateWithTimestamp),
         storageArea: localStorage
       }));
     } catch (error) {
@@ -222,9 +326,9 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
   // Clear modal state
   const clearModalState = () => {
     try {
-      localStorage.removeItem('erms-employee-modal-state');
+      localStorage.removeItem(STORAGE_KEYS.MODAL_STATE);
       window.dispatchEvent(new StorageEvent('storage', {
-        key: 'erms-employee-modal-state',
+        key: STORAGE_KEYS.MODAL_STATE,
         newValue: null,
         storageArea: localStorage
       }));
@@ -233,9 +337,18 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     }
   };
 
-  // Storage keys for persistence
-  const MODAL_STATE_KEY = 'employee-dashboard-modal-state';
-  const FORM_DATA_KEY = 'employee-dashboard-form-data';
+  // Clear all persisted state
+  const clearAllPersistedState = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.FILTERS);
+      localStorage.removeItem(STORAGE_KEYS.PAGINATION);
+      localStorage.removeItem(STORAGE_KEYS.MODAL_STATE);
+      localStorage.removeItem(STORAGE_KEYS.FORM_DATA);
+    } catch (error) {
+      console.warn('Failed to clear persisted state:', error);
+    }
+  };
+
 
   const getInitialFormData = () => {
     return {
@@ -258,149 +371,86 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
   useEffect(() => {
     fetchAllData();
+
     // Enable persistence after initial load
     setTimeout(() => {
-      loadPersistedState();
       setPersistenceEnabled(true);
+      setIsInitialized(true);
     }, 100);
-    
+
     // Add event listeners for persistence
-    const handleVisibilityChange = () => {
-      if (!document.hidden && persistenceEnabled) {
-        loadPersistedState();
-      }
-    };
-    
     const handleBeforeUnload = () => {
-      if (persistenceEnabled && (showAddModal || editingEmployee)) {
-        saveCurrentState();
+      if (persistenceEnabled) {
+        saveFilters();
+        savePagination();
+        saveModalState({
+          showAddModal,
+          showEditModal,
+          editingEmployee,
+          formData
+        });
       }
     };
-    
+
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'erms-employee-modal-state' && persistenceEnabled) {
-        loadPersistedState();
+      if (e.key === STORAGE_KEYS.MODAL_STATE && persistenceEnabled) {
+        // Only load if we're not currently in a modal to prevent resets
+        if (!showAddModal && !editingEmployee) {
+          try {
+            const saved = e.newValue;
+            if (saved) {
+              const state = JSON.parse(saved);
+              const isRecent = Date.now() - state.timestamp < 24 * 60 * 60 * 1000; // 24 hours
+
+              if (isRecent && (state.showAddModal || state.editingEmployee)) {
+                setShowAddModal(state.showAddModal);
+                setShowEditModal(state.showEditModal);
+                setEditingEmployee(state.editingEmployee);
+                setFormData(state.formData || getInitialFormData());
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to load modal state from storage event:', error);
+          }
+        }
       }
     };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('storage', handleStorageChange);
-    
+
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
-  // Save current state to localStorage
-  const saveCurrentState = () => {
-    if (!persistenceEnabled) return;
-    
-    try {
-      const state = {
+
+  // Auto-save filters when they change
+  useEffect(() => {
+    if (isInitialized) {
+      saveFilters();
+    }
+  }, [searchTerm, selectedDepartment, selectedClerk, selectedReason, selectedCadre, isInitialized]);
+
+  // Auto-save pagination when it changes
+  useEffect(() => {
+    if (isInitialized) {
+      savePagination();
+    }
+  }, [currentPage, recordsPerPage, isInitialized]);
+
+  // Auto-save modal state when it changes
+  useEffect(() => {
+    if (isInitialized) {
+      saveModalState({
         showAddModal,
+        showEditModal,
         editingEmployee,
-        formData,
-        timestamp: Date.now()
-      };
-      localStorage.setItem('erms-employee-modal-state', JSON.stringify(state));
-    } catch (error) {
-      console.warn('Failed to save modal state:', error);
+        formData
+      });
     }
-  };
-  
-  // Load persisted state from localStorage
-  const loadPersistedState = () => {
-    try {
-      const saved = localStorage.getItem('erms-employee-modal-state');
-      if (!saved) return;
-      
-      const state = JSON.parse(saved);
-      const isRecent = Date.now() - state.timestamp < 24 * 60 * 60 * 1000; // 24 hours
-      
-      if (isRecent && (state.showAddModal || state.editingEmployee)) {
-        setShowAddModal(state.showAddModal);
-        setEditingEmployee(state.editingEmployee);
-        setFormData(state.formData || getInitialFormData());
-      }
-    } catch (error) {
-      console.warn('Failed to load modal state:', error);
-    }
-  };
-  
-  // Clear persisted state
-  const clearPersistedState = () => {
-    try {
-      localStorage.removeItem('erms-employee-modal-state');
-    } catch (error) {
-      console.warn('Failed to clear modal state:', error);
-    }
-  };
-  
-  // Auto-save state when modal or form data changes
-  useEffect(() => {
-    if (persistenceEnabled && (showAddModal || editingEmployee)) {
-      saveCurrentState();
-    }
-  }, [showAddModal, editingEmployee, formData, persistenceEnabled]);
-  
-  // Auto-save form data on input changes
-  useEffect(() => {
-    if (persistenceEnabled && (showAddModal || editingEmployee)) {
-      const timeoutId = setTimeout(() => {
-        saveCurrentState();
-      }, 500); // Debounce saves
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [formData]);
-
-  // Save form data to localStorage
-  const saveFormData = () => {
-    if (persistenceEnabled && isInitialized) {
-      try {
-        const formState = {
-          data: formData,
-          timestamp: Date.now()
-        };
-        localStorage.setItem(FORM_DATA_KEY, JSON.stringify(formState));
-      } catch (error) {
-        console.warn('Failed to save form data:', error);
-      }
-    }
-  };
-
-  // Auto-save form data when it changes
-  useEffect(() => {
-    if (persistenceEnabled && isInitialized) {
-      saveFormData();
-    }
-  }, [formData, persistenceEnabled, isInitialized]);
-
-  // Handle page visibility and beforeunload events
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && persistenceEnabled) {
-        saveFormData();
-      }
-    };
-
-    const handleBeforeUnload = () => {
-      if (persistenceEnabled) {
-        saveFormData();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [persistenceEnabled]);
+  }, [showAddModal, showEditModal, editingEmployee, formData, isInitialized]);
 
   useEffect(() => {
     filterEmployees();
@@ -427,42 +477,42 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
   const fetchEmployees = async () => {
     try {
       // console.log('🔍 Fetching employees from erms.employee table...');
-      
+
       // First get the education department ID
       const { data: educationDept, error: deptError } = await ermsClient
         .from('department')
         .select('dept_id')
         .eq('department', 'शिक्षण विभाग')
         .single();
-      
+
       if (deptError) {
         console.warn('Could not find education department:', deptError);
       }
-      
+
       const educationDeptId = educationDept?.dept_id;
       console.log('Education Department ID:', educationDeptId);
-      
+
       // Get total count excluding education department
       const countQuery = ermsClient
         .from('employee')
         .select('*', { count: 'exact', head: true })
         .or(`dept_id.is.null,dept_id.neq.${educationDeptId}`);
 
-      
+
       if (educationDeptId) {
         countQuery.neq('dept_id', educationDeptId);
       }
-      
+
       const { count, error: countError } = await countQuery;
-      
+
       if (countError) {
         console.error('Error getting employee count:', countError);
         throw countError;
       }
-      
+
       console.log('Total employees (excluding education):', count);
       setTotalEmployeeCount(count || 0);
-      
+
       // Fetch all records excluding education department
       const dataQuery = ermsClient
         .from('employee')
@@ -486,24 +536,24 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
           date_of_joining,
           created_at,
           updated_at
-        `,{
-            count: 'exact',
-                head: false
-            })
+        `, {
+          count: 'exact',
+          head: false
+        })
         .order('employee_name')
         .range(0, count ? count - 1 : 9999)
         .or(`dept_id.is.null,dept_id.neq.${educationDeptId}`);
-      
+
       // if (educationDeptId) {
       //   dataQuery.neq('dept_id', educationDeptId);
       // }
 
       if (educationDeptId) {
-            dataQuery.or(`dept_id.is.null,dept_id.neq.${educationDeptId}`);
-              }
+        dataQuery.or(`dept_id.is.null,dept_id.neq.${educationDeptId}`);
+      }
 
       const { data, error } = await dataQuery;
-      
+
       // Define education department ID
       // console.log('✅ Raw employee data from database:', data);
       // console.log('📊 Number of employees fetched:', data?.length || 0);
@@ -523,7 +573,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         .from('department')
         .select('dept_id, department')
         .order('department');
-      
+
       if (error) throw error;
       setDepartments(data || []);
     } catch (error) {
@@ -537,7 +587,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         .from('designations')
         .select('designation_id, designation')
         .order('designation');
-      
+
       if (error) throw error;
       setDesignations(data || []);
     } catch (error) {
@@ -551,7 +601,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         .from('talukas')
         .select('tal_id, name')
         .order('name');
-      
+
       if (error) throw error;
       setTalukas(data || []);
     } catch (error) {
@@ -565,7 +615,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         .from('office_locations')
         .select('office_id, name')
         .order('name');
-      
+
       if (error) throw error;
       setOffices(data || []);
     } catch (error) {
@@ -573,7 +623,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     }
   };
 
-  const fetchClerks = async () => {debugger;
+  const fetchClerks = async () => {
     try {
       const { data, error } = await supabase
         .from('user_roles')
@@ -584,15 +634,15 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         `)
         .eq('roles.name', 'clerk')
         .not('name', 'is', null);
-      
+
       if (error) throw error;
-      
+
       const clerksData = data?.map(clerk => ({
         user_id: clerk.user_id,
         name: clerk.name,
         role_name: clerk.roles?.name || 'clerk'
       })) || [];
-      
+
       setClerks(clerksData);
     } catch (error) {
       console.error('Error fetching clerks:', error);
@@ -611,7 +661,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     }
 
     if (selectedDepartment) {
-      filtered = filtered.filter(emp => emp.dept_id === selectedDepartment);
+      filtered = filtered.filter(emp => String(emp.dept_id) === selectedDepartment);
+
     }
 
     if (selectedClerk) {
@@ -665,13 +716,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     setShowAddModal(true);
   };
 
-  const handleEditEmployee = (employee: Employee) => {
+  const handleEditEmployee = (employee: Employee) => {debugger
     setEditingEmployee(employee);
     setFormData({
       emp_id: employee.emp_id,
       employee_name: employee.employee_name,
       date_of_birth: employee.date_of_birth,
-     // retirement_date: employee.retirement_date,
+      // retirement_date: employee.retirement_date,
       reason: employee.reason,
       Cadre: employee.Cadre,
       assigned_clerk: employee.assigned_clerk,
@@ -686,7 +737,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     setShowEditModal(true);
   };
 
-  const handleSaveEmployee = async () => {
+  const handleSaveEmployee = async () => {debugger
     if (!formData.emp_id || !formData.employee_name || !formData.date_of_birth) {
       alert('Employee ID, name, and date of birth are required');
       return;
@@ -697,11 +748,11 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     console.log('   Date of Birth:', formData.date_of_birth);
     console.log('   Cadre:', formData.Cadre);
     console.log('   Cadre selected:', !!formData.Cadre);
-    
+
     if (!formData.Cadre) {
       console.warn('⚠️ Warning: Cadre not selected, retirement date will be null');
     }
-    
+
     // Calculate age from date of birth
     const calculateAge = (dateOfBirth: string) => {
       if (!dateOfBirth) return null;
@@ -724,25 +775,25 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         const birthDate = new Date(dateOfBirth);
         let age = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
-        
+
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
           age--;
         }
-        
+
         return age;
       };
-      
+
       const calculatedAge = calculateAge(formData.date_of_birth);
-      
+
       // Calculate retirement date based on cadre
-      const calculatedRetirementDate = formData.Cadre ? 
+      const calculatedRetirementDate = formData.Cadre ?
         calculateRetirementDate(formData.date_of_birth, formData.Cadre) : null;
-      
+
       // console.log('📊 Calculated values:');
       // console.log('   Age:', calculatedAge);
       // console.log('   Retirement Date:', calculatedRetirementDate);
-    
-      
+
+
       // Calculate retirement date based on cadre
       const employeeData = {
         emp_id: String(formData.emp_id || '').trim() || null,
@@ -778,7 +829,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
           .update(employeeData)
           .eq('emp_id', editingEmployee.emp_id);
         if (error) throw error;
-        
+
         // Show success message for update
         alert(t('common.success') + ': Employee updated successfully');
       } else {
@@ -786,16 +837,16 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
           .from('employee')
           .insert(employeeData);
         if (error) throw error;
-        
+
         // Show success message for creation
         alert(t('common.success') + ': Employee added successfully');
       }
-      
+
       await fetchEmployees();
-      clearPersistedState();
+      clearModalState();
       setShowAddModal(false);
       setShowEditModal(false);
-      
+
       // Reset form data properly
       setFormData({
         emp_id: '',
@@ -816,7 +867,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       setEditingEmployee(null);
     } catch (error) {
       console.error('Error saving employee:', error);
-      
+
       // Print error.message fully to see if it's a constraint violation or type mismatch
       console.error('🚨 Full error details:');
       console.error('   Error message:', error.message);
@@ -824,7 +875,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       console.error('   Error details:', error.details);
       console.error('   Error hint:', error.hint);
       console.error('   Full error object:', JSON.stringify(error, null, 2));
-      
+
       // More user-friendly error messages
       let errorMessage = t('common.error');
       if (error.message.includes('duplicate key')) {
@@ -855,16 +906,16 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         .from('employee')
         .delete()
         .eq('emp_id', employee.emp_id);
-      
+
       if (error) throw error;
-      
+
       // Show success message
       alert(t('common.success') + ': Employee deleted successfully');
       await fetchEmployees();
-      clearPersistedState();
+      clearModalState();
     } catch (error) {
       console.error('Error deleting employee:', error);
-      
+
       // More user-friendly error message
       let errorMessage = t('common.error');
       if (error.message.includes('foreign key')) {
@@ -883,6 +934,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     setSelectedDepartment('');
     setSelectedClerk('');
     setSelectedReason('');
+    setSelectedCadre('');
+    setCurrentPage(1);
   };
 
   const assignedCount = employees.filter(emp => emp.assigned_clerk).length;
@@ -905,14 +958,14 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
               <p className="text-sm text-gray-500 mt-1">{t('erms.employeeDashboardSubtitle')}</p>
             </div>
             <div className="flex items-center space-x-3">
-              <button 
+              <button
                 onClick={fetchAllData}
                 className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
               >
                 <RefreshCw className="h-4 w-4" />
                 <span className="text-sm font-medium">{t('erms.refresh')}</span>
               </button>
-              <button 
+              <button
                 onClick={handleAddEmployee}
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200"
               >
@@ -921,27 +974,25 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
               </button>
             </div>
           </div>
-          
+
           {/* Tabs */}
           <div className="mt-4">
             <nav className="flex space-x-8">
               <button
                 onClick={() => setActiveTab('general')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'general'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'general'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 General Employees
               </button>
               <button
                 onClick={() => setActiveTab('education')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'education'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'education'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 Education Department
               </button>
@@ -1020,7 +1071,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                   <option value={50}>50 per page</option>
                   <option value={100}>100 per page</option>
                 </select>
-                <button 
+                <button
                   onClick={fetchEmployees}
                   className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
                 >
@@ -1054,7 +1105,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
               >
                 <option value="">{t('erms.allDepartments')}</option>
                 {department.map(dept => (
-                  <option key={dept.dept_id} value={dept.dept_id}>{dept.department}</option>
+                    <option key={dept.dept_id} value={String(dept.dept_id)}>{dept.department}</option>
                 ))}
               </select>
 
@@ -1088,7 +1139,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                 <span className="text-sm">{t('erms.clearFilters')}</span>
               </button>
             </div>
-            
+
             <p className="text-sm text-gray-500">
               {t('erms.showingEmployees', { filtered: filteredEmployees.length, total: employees.length })}
             </p>
@@ -1112,78 +1163,78 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">क्रिया</th>
                 </tr>
               </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-  {paginatedEmployees.length === 0 ? (
-    <tr>
-      <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
-        {t('erms.noEmployeesFound')}
-      </td>
-    </tr>
-  ) : (
-    [...paginatedEmployees]
-      .sort((a, b) => new Date(a.date_of_birth) - new Date(b.date_of_birth))
-      .map((employee) => (
-        <tr key={employee.emp_id} className="hover:bg-gray-50">
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {employee.emp_id || '-'}
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap">
-            <div>
-              <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
-            </div>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {employee.date_of_birth}
-          </td>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedEmployees.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
+                      {t('erms.noEmployeesFound')}
+                    </td>
+                  </tr>
+                ) : (
+                  [...paginatedEmployees]
+                    .sort((a, b) => new Date(a.date_of_birth) - new Date(b.date_of_birth))
+                    .map((employee) => (
+                      <tr key={employee.emp_id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {employee.emp_id || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {employee.date_of_birth}
+                        </td>
 
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.ddo_code || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.Cadre || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {designations.find(d => d.designation_id === employee.designation_id)?.designation || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {department.find(d => d.dept_id === employee.dept_id)?.department || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {offices.find(o => o.office_id === employee.office_id)?.name || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.assigned_clerk ? 
-                          clerks.find(c => c.user_id === employee.assigned_clerk)?.name || t('erms.unassigned')
-                          : t('erms.unassigned')
-                        }
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.date_of_joining}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.retirement_date}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-2">
-                          <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleEditEmployee(employee)}
-                            className="text-green-600 hover:text-green-900 p-1 rounded"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteEmployee(employee)}
-                            className="text-red-600 hover:text-red-900 p-1 rounded"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {employee.ddo_code || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {employee.Cadre || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {designations.find(d => d.designation_id === employee.designation_id)?.designation || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {department.find(d => d.dept_id === employee.dept_id)?.department || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {offices.find(o => o.office_id === employee.office_id)?.name || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {employee.assigned_clerk ?
+                            clerks.find(c => c.user_id === employee.assigned_clerk)?.name || t('erms.unassigned')
+                            : t('erms.unassigned')
+                          }
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {employee.date_of_joining}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {employee.retirement_date}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center space-x-2">
+                            <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEditEmployee(employee)}
+                              className="text-green-600 hover:text-green-900 p-1 rounded"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteEmployee(employee)}
+                              className="text-red-600 hover:text-red-900 p-1 rounded"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                 )}
               </tbody>
             </table>
@@ -1204,27 +1255,26 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                   >
                     Previous
                   </button>
-                  
+
                   {/* Page numbers */}
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
                     if (pageNum > totalPages) return null;
-                    
+
                     return (
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1 text-sm border rounded-md ${
-                          currentPage === pageNum
-                            ? 'bg-blue-500 text-white border-blue-500'
-                            : 'border-gray-300 hover:bg-gray-50'
-                        }`}
+                        className={`px-3 py-1 text-sm border rounded-md ${currentPage === pageNum
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'border-gray-300 hover:bg-gray-50'
+                          }`}
                       >
                         {pageNum}
                       </button>
                     );
                   })}
-                  
+
                   <button
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
@@ -1253,7 +1303,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -1267,7 +1317,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t('erms.employeeIdInternal')} <span className="text-red-500">*</span>
@@ -1281,7 +1331,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                     maxLength={50}
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t('erms.employeeName')} <span className="text-red-500">*</span>
@@ -1331,13 +1381,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
-                   <option value="">Select Cadre</option>
-                   <option value="C">C</option>
-                   <option value="D">D</option>
+                    <option value="">Select Cadre</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
                   </select>
                   {formData.Cadre && (
                     <p className="text-xs text-gray-500 mt-1">
-                    Currently selected Cadre: <span className="font-semibold">{formData.Cadre}</span>
+                      Currently selected Cadre: <span className="font-semibold">{formData.Cadre}</span>
                     </p>
                   )}
                 </div>
@@ -1467,7 +1517,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setShowAddModal(false)}
@@ -1501,7 +1551,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -1515,7 +1565,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t('erms.employeeIdInternal')}
@@ -1529,7 +1579,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                   />
                   <p className="text-xs text-gray-500 mt-1">Employee ID cannot be changed during edit</p>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t('erms.employeeName')} <span className="text-red-500">*</span>
@@ -1578,13 +1628,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
-                   <option value="">Select Cadre</option>
-                   <option value="C">C</option>
-                   <option value="D">D</option>
+                    <option value="">Select Cadre</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
                   </select>
                   {formData.Cadre && (
                     <p className="text-xs text-gray-500 mt-1">
-                    Currently selected Cadre: <span className="font-semibold">{formData.Cadre}</span>
+                      Currently selected Cadre: <span className="font-semibold">{formData.Cadre}</span>
                     </p>
                   )}
                 </div>
@@ -1714,7 +1764,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setShowEditModal(false)}

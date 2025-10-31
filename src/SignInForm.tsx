@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
-import { supabase } from './lib/supabase';  // Assuming this is your updated import path
+import { supabase } from './lib/supabase';  
 
 interface SignInFormProps {
   onSignInSuccess: () => void;
@@ -70,51 +70,81 @@ export const SignInForm: React.FC<SignInFormProps> = ({
     }
   };
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    
-    // Basic validation
-    if (!email || !password) {
-      setError(t('auth.fillAllFields'));
-      return;
-    }
+ const handleSignIn = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError('');
+  
+  // Basic validation
+  if (!email || !password) {
+    setError(t('auth.fillAllFields'));
+    return;
+  }
 
-    if (!validateEmail(email)) {
-      setError(t('auth.invalidEmail'));
-      return;
-    }
+  if (!validateEmail(email)) {
+    setError(t('auth.invalidEmail'));
+    return;
+  }
 
-    if (password.length < 6) {
-      setError(t('auth.passwordTooShort'));
-      return;
-    }
+  if (password.length < 6) {
+    setError(t('auth.passwordTooShort'));
+    return;
+  }
 
-    setIsLoading(true);
+  setIsLoading(true);
 
-    if (!supabase) {
-      setError('Application not properly configured. Please contact administrator.');
-      setIsLoading(false);
-      return;
-    }
+  if (!supabase) {
+    setError('Application not properly configured. Please contact administrator.');
+    setIsLoading(false);
+    return;
+  }
 
-    try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+  try {
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      if (signInError) {
-        setError(signInError.message);
-      } else if (data.user) {
-        onSignInSuccess();
+    if (signInError) {
+      setError(signInError.message);
+    } else if (data.user) {
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role_id')
+        .eq('user_id', data.user.id)
+        .single();
+
+      if (roleError) {
+        console.error('Role fetch error:', roleError);
+        setIsLoading(false);
+        return;
       }
-    } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
+
+      const roleId = roleData?.role_id ?? null;
+
+      if (roleId !== null) {
+        const { data: accessData, error: accessError } = await supabase
+          .from('application_permissions')
+          .select('id')
+          .eq('role_id', roleId)
+          .eq('application_name', 'erms')
+          .maybeSingle();
+
+        if (!accessData) {
+          alert('You do not have access to ERMS application');
+          await supabase.auth.signOut();
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      onSignInSuccess();
     }
-  };
+  } catch (err) {
+    setError('An unexpected error occurred. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handlePasswordReset = async () => {
     if (!email) {

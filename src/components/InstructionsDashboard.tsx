@@ -29,17 +29,79 @@ interface Instruction {
 export const InstructionsDashboard: React.FC<InstructionsDashboardProps> = ({ user, onBack }) => {
   const { t } = useTranslation();
   const { userRole } = usePermissions(user);
+  
+  // Comprehensive state persistence system
+  const STORAGE_KEYS = {
+    ACTIVE_TAB: 'instructions-dashboard-active-tab',
+    SEARCH_TERM: 'instructions-dashboard-search-term'
+  };
+
+  // Get initial state from localStorage
+  const getInitialState = () => {
+    try {
+      const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+      const savedSearch = localStorage.getItem(STORAGE_KEYS.SEARCH_TERM);
+      return {
+        activeTab: savedTab || 'clerk',
+        searchTerm: savedSearch || ''
+      };
+    } catch (error) {
+      console.warn('Failed to load state from localStorage:', error);
+      return {
+        activeTab: 'clerk',
+        searchTerm: ''
+      };
+    }
+  };
+
+  const initialState = getInitialState();
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'clerk' | 'admin' | 'payCommission'>('clerk');
+  const [searchTerm, setSearchTerm] = useState(initialState.searchTerm);
+  const [activeTab, setActiveTab] = useState(initialState.activeTab as 'clerk' | 'admin' | 'payCommission');
   
   // Data states
   const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [filteredInstructions, setFilteredInstructions] = useState<Instruction[]>([]);
 
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Save state
+  const saveState = () => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+      localStorage.setItem(STORAGE_KEYS.SEARCH_TERM, searchTerm);
+    } catch (error) {
+      console.warn('Failed to save state to localStorage:', error);
+    }
+  };
+
   useEffect(() => {
     fetchInstructions();
+    
+    setTimeout(() => {
+      setPersistenceEnabled(true);
+      setIsInitialized(true);
+    }, 100);
+
+    const handleBeforeUnload = () => {
+      if (persistenceEnabled) {
+        saveState();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []);
+
+  useEffect(() => {
+    if (isInitialized) {
+      saveState();
+    }
+  }, [activeTab, searchTerm, isInitialized]);
 
   useEffect(() => {
     filterInstructions();

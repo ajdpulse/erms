@@ -65,18 +65,56 @@ interface ColumnInfo {
 export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
+  
+  // Comprehensive state persistence system
+  const STORAGE_KEYS = {
+    ACTIVE_TAB: 'custom-reports-active-tab',
+    REPORT_BUILDER: 'custom-reports-builder-state'
+  };
+
+  // Get initial state
+  const getInitialState = () => {
+    try {
+      const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+      const savedBuilder = localStorage.getItem(STORAGE_KEYS.REPORT_BUILDER);
+      return {
+        activeTab: savedTab || 'create',
+        reportBuilder: savedBuilder ? JSON.parse(savedBuilder) : {
+          selectedTables: [],
+          selectedColumns: [],
+          reportType: 'table',
+          filters: [],
+          joins: []
+        }
+      };
+    } catch (error) {
+      console.warn('Failed to load state from localStorage:', error);
+      return {
+        activeTab: 'create',
+        reportBuilder: {
+          selectedTables: [],
+          selectedColumns: [],
+          reportType: 'table',
+          filters: [],
+          joins: []
+        }
+      };
+    }
+  };
+
+  const initialState = getInitialState();
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'create' | 'templates' | 'results'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'templates' | 'results'>(initialState.activeTab as any);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [reportData, setReportData] = useState<any[]>([]);
   const [reportColumns, setReportColumns] = useState<string[]>([]);
   
   // Report Builder States
-  const [selectedTables, setSelectedTables] = useState<string[]>([]);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
-  const [reportType, setReportType] = useState<'bar' | 'pie' | 'line' | 'table'>('table');
-  const [filters, setFilters] = useState<any[]>([]);
-  const [joins, setJoins] = useState<any[]>([]);
+  const [selectedTables, setSelectedTables] = useState<string[]>(initialState.reportBuilder.selectedTables);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(initialState.reportBuilder.selectedColumns);
+  const [reportType, setReportType] = useState<'bar' | 'pie' | 'line' | 'table'>(initialState.reportBuilder.reportType as any);
+  const [filters, setFilters] = useState<any[]>(initialState.reportBuilder.filters);
+  const [joins, setJoins] = useState<any[]>(initialState.reportBuilder.joins);
   const [reportName, setReportName] = useState('');
   const [reportDescription, setReportDescription] = useState('');
   const [availableColumns, setAvailableColumns] = useState<{[key: string]: ColumnInfo[]}>({});
@@ -85,10 +123,54 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
   const [availableTables, setAvailableTables] = useState<TableInfo[]>([]);
   const [savedTemplates, setSavedTemplates] = useState<ReportTemplate[]>([]);
 
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Save state
+  const saveState = () => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+      const reportBuilderState = {
+        selectedTables,
+        selectedColumns,
+        reportType,
+        filters,
+        joins,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.REPORT_BUILDER, JSON.stringify(reportBuilderState));
+    } catch (error) {
+      console.warn('Failed to save state to localStorage:', error);
+    }
+  };
+
   useEffect(() => {
     fetchAvailableTables();
     fetchSavedTemplates();
+    
+    setTimeout(() => {
+      setPersistenceEnabled(true);
+      setIsInitialized(true);
+    }, 100);
+
+    const handleBeforeUnload = () => {
+      if (persistenceEnabled) {
+        saveState();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []);
+
+  useEffect(() => {
+    if (isInitialized) {
+      saveState();
+    }
+  }, [activeTab, selectedTables, selectedColumns, reportType, filters, joins, isInitialized]);
 
   useEffect(() => {
     // Update available columns when tables are selected

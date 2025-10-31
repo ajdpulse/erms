@@ -12,8 +12,12 @@ import {
   Building2,
   MapPin,
   UserCheck,
-  ClipboardList
+  ClipboardList,
+  Shield,
+  ArrowLeft,
+  LogOut
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { OrganizationSetup } from './OrganizationSetup';
 import { EmployeeDashboard } from './EmployeeDashboard';
 import { RetirementDashboard } from './RetirementDashboard';
@@ -21,7 +25,7 @@ import { RetirementTracker } from './RetirementTracker';
 import { InstructionsDashboard } from './InstructionsDashboard';
 import { CustomReports } from './CustomReports';
 import { usePermissions } from '../hooks/usePermissions';
-import { Shield } from 'lucide-react';
+import { supabase } from "../lib/supabase"; // adjust import path if needed
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface ERMSDashboardProps {
@@ -32,28 +36,33 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
   const { t } = useTranslation();
   const { hasAccess } = usePermissions(user);
 
-  // Default module constant
+  const navigate = useNavigate();
   const defaultModule = 'employee-dashboard';
 
-  // State management with localStorage persistence
   const [activeModule, setActiveModule] = useState(() => {
-    // Initialize from localStorage or default
     return localStorage.getItem('ermsActiveModule') || defaultModule;
   });
 
-  // Persist active module to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('ermsActiveModule', activeModule);
   }, [activeModule]);
 
-  // Module change handler
   const handleModuleChange = (moduleId: string) => {
     setActiveModule(moduleId);
   };
 
-  // Back handler - does not change active module, preserving state
   const handleBackToMain = () => {
-    // Empty handler - maintains current module state
+     if (window && window.location) {
+      localStorage.removeItem('ermsActiveModule');
+      window.location.reload(); // or redirect to login
+    }
+  };
+
+  // Logout: Supabase sign out and reload
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('ermsActiveModule');
+    window.location.href = '/';
   };
 
   const modules = [
@@ -93,15 +102,15 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
       hoverColor: 'hover:bg-purple-600',
       requiredPermission: 'write'
     },
-    {
-      id: 'retirement-file-tracker',
-      name: t('erms.retirementFileTracker'),
-      description: t('erms.retirementFileTrackerDesc'),
-      icon: FolderOpen,
-      color: 'bg-indigo-500',
-      hoverColor: 'hover:bg-indigo-600',
-      requiredPermission: 'read'
-    },
+    // {
+    //   id: 'retirement-file-tracker',
+    //   name: t('erms.retirementFileTracker'),
+    //   description: t('erms.retirementFileTrackerDesc'),
+    //   icon: FolderOpen,
+    //   color: 'bg-indigo-500',
+    //   hoverColor: 'hover:bg-indigo-600',
+    //   requiredPermission: 'read'
+    // },
     {
       id: 'custom-reports',
       name: t('erms.customReports'),
@@ -122,7 +131,6 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
     }
   ];
 
-  // Filter modules based on user permissions
   const getAccessibleModules = () => {
     return modules.filter(module => {
       return hasAccess('erms', module.requiredPermission);
@@ -132,7 +140,6 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
   const accessibleModules = getAccessibleModules();
 
   const renderModuleContent = () => {
-    // Check if user has access to the active module
     const activeModuleConfig = modules.find(m => m.id === activeModule);
     const hasModuleAccess = activeModuleConfig && hasAccess('erms', activeModuleConfig.requiredPermission);
 
@@ -189,10 +196,20 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Left Sidebar */}
-      <div className="w-80 bg-white shadow-lg border-r border-gray-200 flex flex-col">
-        {/* Header without back button */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3 mb-4">
+      <div 
+        className="w-80 bg-white shadow-lg border-r border-gray-200 flex flex-col fixed top-0 left-0 h-screen z-30"
+        style={{ height: '100vh' }}
+      >
+        {/* Header with back button */}
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <button
+            onClick={handleBackToMain}
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-500" />
+          </button>
+          <div className="flex items-center space-x-3">
             <div className="bg-blue-100 p-2 rounded-lg">
               <Users className="h-6 w-6 text-blue-600" />
             </div>
@@ -217,40 +234,50 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
               </div>
             ) : (
               accessibleModules.map((module) => (
-              <button
-                key={module.id}
-                onClick={() => handleModuleChange(module.id)}
-                className={`w-full text-left p-4 rounded-lg transition-all duration-200 group ${
-                  activeModule === module.id
-                    ? 'bg-blue-50 border-2 border-blue-200 shadow-sm'
-                    : 'hover:bg-gray-50 border-2 border-transparent'
-                }`}
-              >
-                <div className="flex items-start space-x-3">
-                  <div className={`${module.color} ${module.hoverColor} p-2 rounded-lg transition-colors duration-200`}>
-                    <module.icon className="h-5 w-5 text-white" />
+                <button
+                  key={module.id}
+                  onClick={() => handleModuleChange(module.id)}
+                  className={`w-full text-left p-4 rounded-lg transition-all duration-200 group ${
+                    activeModule === module.id
+                      ? 'bg-blue-50 border-2 border-blue-200 shadow-sm'
+                      : 'hover:bg-gray-50 border-2 border-transparent'
+                  }`}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className={`${module.color} ${module.hoverColor} p-2 rounded-lg transition-colors duration-200`}>
+                      <module.icon className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className={`font-medium transition-colors duration-200 ${
+                        activeModule === module.id ? 'text-blue-900' : 'text-gray-900 group-hover:text-gray-700'
+                      }`}>
+                        {module.name}
+                      </h3>
+                      <p className={`text-sm mt-1 transition-colors duration-200 ${
+                        activeModule === module.id ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-600'
+                      }`}>
+                        {module.description}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className={`font-medium transition-colors duration-200 ${
-                      activeModule === module.id ? 'text-blue-900' : 'text-gray-900 group-hover:text-gray-700'
-                    }`}>
-                      {module.name}
-                    </h3>
-                    <p className={`text-sm mt-1 transition-colors duration-200 ${
-                      activeModule === module.id ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-600'
-                    }`}>
-                      {module.description}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            ))
+                </button>
+              ))
             )}
           </nav>
         </div>
+        {/* Logout Button */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center p-3 rounded-lg bg-red-100 hover:bg-red-200 transition-colors text-red-700"
+          >
+            <LogOut className="h-5 w-5 mr-2" />
+            {t('common.logout', 'Logout')}
+          </button>
+        </div>
       </div>
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-y-auto ml-80">
         {renderModuleContent()}
       </div>
     </div>

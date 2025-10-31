@@ -83,6 +83,82 @@ interface ClerkData {
 export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProps> = ({ onBack }) => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Comprehensive state persistence system
+  const STORAGE_KEYS = {
+    ACTIVE_TAB: 'education-dashboard-active-tab',
+    FILTERS: 'education-dashboard-filters',
+    PAGINATION: 'education-dashboard-pagination',
+    MODAL_STATE: 'education-dashboard-modal-state',
+    FORM_DATA: 'education-dashboard-form-data'
+  };
+
+  // Get initial filter state from localStorage
+  const getInitialFilters = () => {
+    try {
+      const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        return {
+          searchTerm: parsed.searchTerm || '',
+          selectedDepartment: parsed.selectedDepartment || '',
+          selectedClerk: parsed.selectedClerk || '',
+          selectedReason: parsed.selectedReason || ''
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load filters from localStorage:', error);
+    }
+    return {
+      searchTerm: '',
+      selectedDepartment: '',
+      selectedClerk: '',
+      selectedReason: ''
+    };
+  };
+
+  // Get initial pagination state from localStorage
+  const getInitialPagination = () => {
+    try {
+      const savedPagination = localStorage.getItem(STORAGE_KEYS.PAGINATION);
+      if (savedPagination) {
+        const parsed = JSON.parse(savedPagination);
+        return {
+          currentPage: parsed.currentPage || 1,
+          recordsPerPage: parsed.recordsPerPage || 20
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load pagination from localStorage:', error);
+    }
+    return {
+      currentPage: 1,
+      recordsPerPage: 20
+    };
+  };
+
+  // Modal persistence state management
+  const getInitialModalState = () => {
+    try {
+      const savedModalState = localStorage.getItem(STORAGE_KEYS.MODAL_STATE);
+      if (savedModalState) {
+        const parsed = JSON.parse(savedModalState);
+        return {
+          showAddModal: parsed.showAddModal || false,
+          showEditModal: parsed.showEditModal || false,
+          editingEmployee: parsed.editingEmployee || null
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load modal state from localStorage:', error);
+    }
+    return {
+      showAddModal: false,
+      showEditModal: false,
+      editingEmployee: null
+    };
+  };
+
   const [employees, setEmployees] = useState<EducationEmployee[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<EducationEmployee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -92,19 +168,24 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
   const [clerks, setClerks] = useState<ClerkData[]>([]);
   const [educationDeptId, setEducationDeptId] = useState<string>('');
   
+  // Initialize state with persisted values
+  const initialFilters = getInitialFilters();
+  const initialPagination = getInitialPagination();
+  const initialModalState = getInitialModalState();
+  
   // Filter states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedClerk, setSelectedClerk] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage] = useState(20);
+  const [searchTerm, setSearchTerm] = useState(initialFilters.searchTerm);
+  const [selectedDepartment, setSelectedDepartment] = useState(initialFilters.selectedDepartment);
+  const [selectedClerk, setSelectedClerk] = useState(initialFilters.selectedClerk);
+  const [selectedReason, setSelectedReason] = useState(initialFilters.selectedReason);
+  const [currentPage, setCurrentPage] = useState(initialPagination.currentPage);
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
-  const [selectedReason, setSelectedReason] = useState('');
+  const [recordsPerPage] = useState(initialPagination.recordsPerPage);
   
   // Modal states
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<EducationEmployee | null>(null);
+  const [showAddModal, setShowAddModal] = useState(initialModalState.showAddModal);
+  const [showEditModal, setShowEditModal] = useState(initialModalState.showEditModal);
+  const [editingEmployee, setEditingEmployee] = useState<EducationEmployee | null>(initialModalState.editingEmployee);
   
   // Form data
   const [formData, setFormData] = useState<Partial<EducationEmployee>>({
@@ -112,9 +193,141 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     date_of_joining: ''
   });
 
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Save filters to localStorage
+  const saveFilters = () => {
+    try {
+      const filterState = {
+        searchTerm,
+        selectedDepartment,
+        selectedClerk,
+        selectedReason,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(filterState));
+    } catch (error) {
+      console.warn('Failed to save filters to localStorage:', error);
+    }
+  };
+
+  // Save pagination to localStorage
+  const savePagination = () => {
+    try {
+      const paginationState = {
+        currentPage,
+        recordsPerPage,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.PAGINATION, JSON.stringify(paginationState));
+    } catch (error) {
+      console.warn('Failed to save pagination to localStorage:', error);
+    }
+  };
+
+  // Save modal state to localStorage
+  const saveModalState = (modalState: {
+    showAddModal: boolean;
+    showEditModal: boolean;
+    editingEmployee: EducationEmployee | null;
+  }) => {
+    try {
+      const stateWithTimestamp = {
+        ...modalState,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.MODAL_STATE, JSON.stringify(stateWithTimestamp));
+
+      // Broadcast to other tabs
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: STORAGE_KEYS.MODAL_STATE,
+        newValue: JSON.stringify(stateWithTimestamp),
+        storageArea: localStorage
+      }));
+    } catch (error) {
+      console.warn('Failed to save modal state to localStorage:', error);
+    }
+  };
+
   useEffect(() => {
     fetchAllData();
+    
+    // Enable persistence after initial load
+    setTimeout(() => {
+      setPersistenceEnabled(true);
+      setIsInitialized(true);
+    }, 100);
+
+    // Add event listeners for persistence
+    const handleBeforeUnload = () => {
+      if (persistenceEnabled) {
+        saveFilters();
+        savePagination();
+        saveModalState({
+          showAddModal,
+          showEditModal,
+          editingEmployee
+        });
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.MODAL_STATE && persistenceEnabled) {
+        // Only load if we're not currently in a modal to prevent resets
+        if (!showAddModal && !editingEmployee) {
+          try {
+            const saved = e.newValue;
+            if (saved) {
+              const state = JSON.parse(saved);
+              const isRecent = Date.now() - state.timestamp < 24 * 60 * 60 * 1000; // 24 hours
+              
+              if (isRecent && (state.showAddModal || state.editingEmployee)) {
+                setShowAddModal(state.showAddModal);
+                setShowEditModal(state.showEditModal);
+                setEditingEmployee(state.editingEmployee);
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to load modal state from storage event:', error);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
+
+  // Auto-save filters when they change
+  useEffect(() => {
+    if (isInitialized) {
+      saveFilters();
+    }
+  }, [searchTerm, selectedDepartment, selectedClerk, selectedReason, isInitialized]);
+
+  // Auto-save pagination when it changes
+  useEffect(() => {
+    if (isInitialized) {
+      savePagination();
+    }
+  }, [currentPage, recordsPerPage, isInitialized]);
+
+  // Auto-save modal state when it changes
+  useEffect(() => {
+    if (isInitialized) {
+      saveModalState({
+        showAddModal,
+        showEditModal,
+        editingEmployee
+      });
+    }
+  }, [showAddModal, showEditModal, editingEmployee, isInitialized]);
 
   useEffect(() => {
     if (educationDeptId) {

@@ -52,7 +52,6 @@ interface RetirementEmployee {
   date_of_actual_benefit_provided_for_medical_allowance_if_applic: string | null;
   date_of_benefit_provided_for_hometown_travel_allowance_if_appli: string | null;
   date_of_actual_benefit_provided_for_pending_travel_allowance_if: string | null;
-  government_decision_march_31_2023: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -70,19 +69,75 @@ interface EditingEmployee extends RetirementEmployee {
 export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, onBack }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
+  
+  // Comprehensive state persistence system
+  const STORAGE_KEYS = {
+    ACTIVE_TAB: 'retirement-dashboard-active-tab',
+    SELECTED_CLERK: 'retirement-dashboard-selected-clerk',
+    SELECTED_MONTH: 'retirement-dashboard-selected-month',
+    SELECTED_YEAR: 'retirement-dashboard-selected-year',
+    MODAL_STATE: 'retirement-dashboard-modal-state',
+    PAGINATION: 'retirement-dashboard-pagination'
+  };
+
+  // Get initial state from localStorage
+  const getInitialState = () => {
+    try {
+      const savedFilters = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+      const savedClerk = localStorage.getItem(STORAGE_KEYS.SELECTED_CLERK);
+      const savedMonth = localStorage.getItem(STORAGE_KEYS.SELECTED_MONTH);
+      const savedYear = localStorage.getItem(STORAGE_KEYS.SELECTED_YEAR);
+      const savedPagination = localStorage.getItem(STORAGE_KEYS.PAGINATION);
+      
+      return {
+        activeTab: savedFilters || 'inProgress',
+        selectedClerk: savedClerk || '',
+        selectedMonth: savedMonth ? parseInt(savedMonth) : new Date().getMonth(),
+        selectedYear: savedYear ? parseInt(savedYear) : new Date().getFullYear(),
+        currentPage: savedPagination ? JSON.parse(savedPagination).currentPage : 1
+      };
+    } catch (error) {
+      console.warn('Failed to load state from localStorage:', error);
+      return {
+        activeTab: 'inProgress',
+        selectedClerk: '',
+        selectedMonth: new Date().getMonth(),
+        selectedYear: new Date().getFullYear(),
+        currentPage: 1
+      };
+    }
+  };
+
+  const initialState = getInitialState();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedClerk, setSelectedClerk] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedClerk, setSelectedClerk] = useState(initialState.selectedClerk);
+  const [selectedMonth, setSelectedMonth] = useState(initialState.selectedMonth);
+  const [selectedYear, setSelectedYear] = useState(initialState.selectedYear);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<EditingEmployee | null>(null);
-  const [activeTab, setActiveTab] = useState<'inProgress' | 'pending' | 'completed'>('inProgress');
+  const [activeTab, setActiveTab] = useState(initialState.activeTab as 'inProgress' | 'pending' | 'completed');
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingEmployee, setViewingEmployee] = useState<RetirementEmployee | null>(null);
   const [retirementEmployees, setRetirementEmployees] = useState<RetirementEmployee[]>([]);
   const [clerks, setClerks] = useState<ClerkData[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialState.currentPage);
   const [employeesPerPage] = useState(10);
+
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Save state functions
+  const saveState = () => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+      localStorage.setItem(STORAGE_KEYS.SELECTED_CLERK, selectedClerk);
+      localStorage.setItem(STORAGE_KEYS.SELECTED_MONTH, selectedMonth.toString());
+      localStorage.setItem(STORAGE_KEYS.SELECTED_YEAR, selectedYear.toString());
+      localStorage.setItem(STORAGE_KEYS.PAGINATION, JSON.stringify({ currentPage, timestamp: Date.now() }));
+    } catch (error) {
+      console.warn('Failed to save state to localStorage:', error);
+    }
+  };
 
   const filteredEmployees = useMemo(() => {
     let filtered = retirementEmployees;
@@ -187,7 +242,72 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
   // Initial data fetch - only run once on mount
   useEffect(() => {
     fetchAllData();
+    
+    setTimeout(() => {
+      setPersistenceEnabled(true);
+      setIsInitialized(true);
+    }, 100);
+
+    const handleBeforeUnload = () => {
+      if (persistenceEnabled) {
+        saveState();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []); // Empty dependency array - only run once on mount
+
+  useEffect(() => {
+    if (isInitialized) {
+      saveState();
+    }
+  }, [activeTab, selectedClerk, selectedMonth, selectedYear, currentPage, isInitialized]);
+
+  // Restore modal state (edit/view) when the component initializes so that
+  // switching tabs away and back preserves the modal if it was open.
+  useEffect(() => {
+    if (!isInitialized) return;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.MODAL_STATE);
+      if (saved) {
+        const state = JSON.parse(saved);
+        const isRecent = Date.now() - (state.timestamp || 0) < 24 * 60 * 60 * 1000; // 24 hours
+        if (isRecent) {
+          if (state.showEditModal && state.editingEmployee) {
+            setEditingEmployee(state.editingEmployee);
+            setShowEditModal(true);
+          }
+          if (state.showViewModal && state.viewingEmployee) {
+            setViewingEmployee(state.viewingEmployee);
+            setShowViewModal(true);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to restore modal state from localStorage:', error);
+    }
+  }, [isInitialized]);
+
+  // Persist modal state so it survives tab/component switches
+  useEffect(() => {
+    if (!isInitialized) return;
+    try {
+      const state = {
+        showEditModal,
+        editingEmployee,
+        showViewModal,
+        viewingEmployee,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.MODAL_STATE, JSON.stringify(state));
+    } catch (error) {
+      console.warn('Failed to save modal state to localStorage:', error);
+    }
+  }, [showEditModal, editingEmployee, showViewModal, viewingEmployee, isInitialized]);
 
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when filters change
@@ -240,7 +360,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
           date_of_actual_benefit_provided_for_medical_allowance_if_applic,
           date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
           date_of_actual_benefit_provided_for_pending_travel_allowance_if,
-          government_decision_march_31_2023,
           created_at,
           updated_at,
           designation
@@ -297,7 +416,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
       employee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
       employee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
       employee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
-      employee.government_decision_march_31_2023
     ];
 
     const filledFields = progressFields.filter(field => field && field.trim() !== '').length;
@@ -423,7 +541,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
           date_of_actual_benefit_provided_for_medical_allowance_if_applic: editingEmployee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
           date_of_benefit_provided_for_hometown_travel_allowance_if_appli: editingEmployee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
           date_of_actual_benefit_provided_for_pending_travel_allowance_if: editingEmployee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
-          government_decision_march_31_2023: editingEmployee.government_decision_march_31_2023
         })
         .eq('id', editingEmployee.id);
 
@@ -460,7 +577,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
       employee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
       employee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
       employee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
-      employee.government_decision_march_31_2023
     ];
     const filledFields = progressFields.filter(field => 
       field && 
@@ -555,7 +671,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
           record.date_of_actual_benefit_provided_for_medical_allowance_if_applic ? new Date(record.date_of_actual_benefit_provided_for_medical_allowance_if_applic).toLocaleDateString() : '',
           record.date_of_benefit_provided_for_hometown_travel_allowance_if_appli ? new Date(record.date_of_benefit_provided_for_hometown_travel_allowance_if_appli).toLocaleDateString() : '',
           record.date_of_actual_benefit_provided_for_pending_travel_allowance_if ? new Date(record.date_of_actual_benefit_provided_for_pending_travel_allowance_if).toLocaleDateString() : '',
-          record.government_decision_march_31_2023 || '',
           record.overall_comment || '',
           `${completionPercentage}%`,
           status
@@ -981,7 +1096,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       employee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
                       employee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
                       employee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
-                      employee.government_decision_march_31_2023,      
                       employee.retirement_progress_status,
                       employee.pay_commission_status,
                       employee.group_insurance_status
@@ -1245,29 +1359,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.governmentDecisionMarch2023')}</label>
-                    <div className="space-y-2">
-                      <p className="text-sm text-blue-600 font-medium">
-                        {t('erms.governmentDecisionCompliance')}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {t('erms.employeesHiredAfterNov2005')}
-                      </p>
-                      <select
-                        value={editingEmployee.government_decision_march_31_2023 || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, government_decision_march_31_2023: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">{t('erms.selectStatus')}</option>
-                        <option value="Available">{t('erms.available')}</option>
-                        <option value="Not Available">{t('erms.notAvailable')}</option>
-                        <option value="Exempted">{t('erms.exempted')}</option>
-                        <option value="Not Applicable">{t('erms.notApplicable')}</option>
-                      </select>
-                    </div>
-                  </div>
+                                
                 </div>
               </div>
             </div>
@@ -1435,22 +1527,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 </div>
               </div>
 
-              {/* Government Decision */}
-              <div className="mb-6 p-4 bg-purple-50 rounded-lg">
-                <h4 className="text-md font-semibold text-purple-800 mb-3">{t('erms.governmentDecisionMarch2023')}</h4>
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('erms.governmentDecisionCompliance')}</label>
-                    <div className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900">
-                      {viewingEmployee.government_decision_march_31_2023 || '-'}
-                    </div>
-                  </div>
-                  <div className="text-xs text-blue-600 bg-blue-50 p-3 rounded-lg">
-                    {t('erms.employeesHiredAfterNov2005')}
-                  </div>
-                </div>
-              </div>
-
               {/* Progress Summary */}
               <div className="p-4 bg-gray-50 rounded-lg">
                 <h4 className="text-md font-semibold text-gray-800 mb-3">Progress Summary</h4>
@@ -1469,7 +1545,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                           viewingEmployee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
                           viewingEmployee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
                           viewingEmployee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
-                          viewingEmployee.government_decision_march_31_2023
                         ];
                         const filledFields = progressFields.filter(field => field && field.trim() !== '').length;
                         return Math.round((filledFields / progressFields.length) * 100);
@@ -1500,8 +1575,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                           viewingEmployee.date_of_actual_benefit_provided_for_leave_encashment,
                           viewingEmployee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
                           viewingEmployee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
-                          viewingEmployee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
-                          viewingEmployee.government_decision_march_31_2023
+                          viewingEmployee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,                         
                         ];
                         return progressFields.filter(field => field && field.trim() !== '').length;
                       })()}/11

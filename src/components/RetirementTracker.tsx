@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PayCommission } from './PayCommission';
 import { GroupInsurance } from './GroupInsurance';
-import { 
+import {
   Users,
   Calendar,
   CheckCircle,
@@ -46,34 +46,16 @@ interface RetirementProgress {
   computer_exam_passed: string | null;
   marathi_hindi_exam_exemption: string | null;
   post_service_exam: string | null;
+  appointed_employee: string | null;
+  validity_certificate: string | null;
   verification_completed: string | null;
   has_undertaking_been_taken_on_21_12_2021: string | null;
   no_objection_no_inquiry_certificate: string | null;
   retirement_order: string | null;
   birth_certificate_doc_submitted: string | null;
-  date_of_birth_verification_comment: string | null;
-  medical_certificate_comment: string | null;
-  nomination_comment: string | null;
-  permanent_registration_comment: string | null;
-  computer_exam_passed_comment: string | null;
-  marathi_hindi_exam_exemption_comment: string | null;
-  post_service_exam_comment: string | null;
-  verification_completed_comment: string | null;
-  has_undertaking_been_taken_on_21_12_2021_comment: string | null;
-  no_objection_no_inquiry_certificate_comment: string | null;
-  retirement_order_comment: string | null;
-  date_of_birth_verification_date: string | null;
-  medical_certificate_date: string | null;
-  nomination_date: string | null;
-  permanent_registration_date: string | null;
-  computer_exam_passed_date: string | null;
-  marathi_hindi_exam_exemption_date: string | null;
-  post_service_exam_date: string | null;
-  verification_completed_date: string | null;
-  has_undertaking_been_taken_on_21_12_2021_date: string | null;
-  no_objection_no_inquiry_certificate_date: string | null;
-  retirement_order_date: string | null;
-  overall_comment: string | null;
+  common_progress_comment: string | null;
+  common_progress_date: string | null;
+  government_decision_march_31_2023: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -109,39 +91,242 @@ interface RetirementProgressRecord {
   date_of_birth_verification: string | null;
   computer_exam_passed: string | null;
   marathi_hindi_exam_exemption: string | null;
+  validity_certificate: string | null;
+  appointed_employee: string | null;
   verification_completed: string | null;
   undertaking_taken: string | null;
   no_objection_certificate: string | null;
   retirement_order: string | null;
-  overall_comment: string | null;
+  common_progress_comment: string | null;
+  common_progress_date: string | null;
+  government_decision_march_31_2023: string | null;
 }
 
 export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBack }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
-  const [activeMainTab, setActiveMainTab] = useState<'retirement' | 'payCommission' | 'groupInsurance'>('retirement');
+
+  // Comprehensive state persistence system
+  const STORAGE_KEYS = {
+    ACTIVE_MAIN_TAB: 'retirement-tracker-active-main-tab',
+    ACTIVE_TAB: 'retirement-tracker-active-tab',
+    FILTERS: 'retirement-tracker-filters',
+    MODAL_STATE: 'retirement-tracker-modal-state'
+  };
+
+  // Get initial main tab state
+  const getInitialActiveMainTab = () => {
+    try {
+      const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_MAIN_TAB);
+      if (savedTab && ['retirement', 'payCommission', 'groupInsurance'].includes(savedTab)) {
+        return savedTab as 'retirement' | 'payCommission' | 'groupInsurance';
+      }
+    } catch (error) {
+      console.warn('Failed to load active main tab from localStorage:', error);
+    }
+    return 'retirement';
+  };
+
+  // Get initial filter state
+  const getInitialFilters = () => {
+    try {
+      const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        return {
+          searchTerm: parsed.searchTerm || '',
+          selectedDepartment: parsed.selectedDepartment || '',
+          selectedClerk: parsed.selectedClerk || '',
+          selectedStatus: parsed.selectedStatus || '',
+          activeTab: parsed.activeTab || 'inProgress',
+          currentPage: parsed.currentPage || 1
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load filters from localStorage:', error);
+    }
+    return {
+      searchTerm: '',
+      selectedDepartment: '',
+      selectedClerk: '',
+      selectedStatus: '',
+      activeTab: 'inProgress',
+      currentPage: 1
+    };
+  };
+
+  // Get initial modal state
+  const getInitialModalState = () => {
+    try {
+      const savedModalState = localStorage.getItem(STORAGE_KEYS.MODAL_STATE);
+      if (savedModalState) {
+        const parsed = JSON.parse(savedModalState);
+        return {
+          showEditModal: parsed.showEditModal || false,
+          showViewModal: parsed.showViewModal || false,
+          editingEmployee: parsed.editingEmployee || null
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load modal state from localStorage:', error);
+    }
+    return {
+      showEditModal: false,
+      showViewModal: false,
+      editingEmployee: null
+    };
+  };
+
+  const initialFilters = getInitialFilters();
+  const initialModalState = getInitialModalState();
+  const [activeMainTab, setActiveMainTab] = useState(getInitialActiveMainTab);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedClerk, setSelectedClerk] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<RetirementProgress | null>(null);
+  const [selectedClerk, setSelectedClerk] = useState(initialFilters.selectedClerk);
+  const [selectedDepartment, setSelectedDepartment] = useState(initialFilters.selectedDepartment);
+  const [selectedStatus, setSelectedStatus] = useState(initialFilters.selectedStatus);
+  const [searchTerm, setSearchTerm] = useState(initialFilters.searchTerm);
+  const [showEditModal, setShowEditModal] = useState(initialModalState.showEditModal);
+  const [showViewModal, setShowViewModal] = useState(initialModalState.showViewModal);
+  const [editingEmployee, setEditingEmployee] = useState<RetirementProgress | null>(initialModalState.editingEmployee);
   const [viewingRecord, setViewingRecord] = useState<RetirementProgressRecord | null>(null);
-  const [activeTab, setActiveTab] = useState<'inProgress' | 'pending' | 'completed'>('inProgress');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState(initialFilters.activeTab as 'inProgress' | 'pending' | 'completed');
+  const [currentPage, setCurrentPage] = useState(initialFilters.currentPage);
   const recordsPerPage = 20;
-  
+
   // Data states
   const [retirementProgress, setRetirementProgress] = useState<RetirementProgress[]>([]);
   const [clerks, setClerks] = useState<ClerkData[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<RetirementProgress[]>([]);
 
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Save filters
+  const saveFilters = () => {
+    try {
+      const filterState = {
+        searchTerm,
+        selectedDepartment,
+        selectedClerk,
+        selectedStatus,
+        activeTab,
+        currentPage,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(filterState));
+    } catch (error) {
+      console.warn('Failed to save filters to localStorage:', error);
+    }
+  };
+
+  // Save active main tab
+  const saveActiveMainTab = () => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_MAIN_TAB, activeMainTab);
+    } catch (error) {
+      console.warn('Failed to save active main tab to localStorage:', error);
+    }
+  };
+
+  // Save modal state
+  const saveModalState = (modalState: {
+    showEditModal: boolean;
+    showViewModal: boolean;
+    editingEmployee: RetirementProgress | null;
+  }) => {
+    try {
+      const stateWithTimestamp = {
+        ...modalState,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.MODAL_STATE, JSON.stringify(stateWithTimestamp));
+
+      // Broadcast to other tabs
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: STORAGE_KEYS.MODAL_STATE,
+        newValue: JSON.stringify(stateWithTimestamp),
+        storageArea: localStorage
+      }));
+    } catch (error) {
+      console.warn('Failed to save modal state to localStorage:', error);
+    }
+  };
+
   useEffect(() => {
     fetchAllData();
+
+    setTimeout(() => {
+      setPersistenceEnabled(true);
+      setIsInitialized(true);
+    }, 100);
+
+    const handleBeforeUnload = () => {
+      if (persistenceEnabled) {
+        saveFilters();
+        saveActiveMainTab();
+        saveModalState({
+          showEditModal,
+          showViewModal,
+          editingEmployee
+        });
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.MODAL_STATE && persistenceEnabled) {
+        // Only load if we're not currently in a modal to prevent resets
+        if (!showEditModal && !showViewModal && !editingEmployee) {
+          try {
+            const saved = e.newValue;
+            if (saved) {
+              const state = JSON.parse(saved);
+              const isRecent = Date.now() - state.timestamp < 24 * 60 * 60 * 1000; // 24 hours
+
+              if (isRecent && (state.showEditModal || state.showViewModal || state.editingEmployee)) {
+                setShowEditModal(state.showEditModal);
+                setShowViewModal(state.showViewModal);
+                setEditingEmployee(state.editingEmployee);
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to load modal state from storage event:', error);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
+
+  useEffect(() => {
+    if (isInitialized) {
+      saveFilters();
+    }
+  }, [searchTerm, selectedDepartment, selectedClerk, selectedStatus, activeTab, currentPage, isInitialized]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      saveActiveMainTab();
+    }
+  }, [activeMainTab, isInitialized]);
+
+  // Auto-save modal state when it changes
+  useEffect(() => {
+    if (isInitialized) {
+      saveModalState({
+        showEditModal,
+        showViewModal,
+        editingEmployee
+      });
+    }
+  }, [showEditModal, showViewModal, editingEmployee, isInitialized]);
 
   useEffect(() => {
     filterEmployees();
@@ -181,45 +366,28 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
           computer_exam_passed,
           marathi_hindi_exam_exemption,
           post_service_exam,
+          appointed_employee,
+          validity_certificate,
           verification_completed,
           has_undertaking_been_taken_on_21_12_2021,
           no_objection_no_inquiry_certificate,
           retirement_order,
           birth_certificate_doc_submitted,
-          date_of_birth_verification_comment,
-          medical_certificate_comment,
-          nomination_comment,
-          permanent_registration_comment,
-          computer_exam_passed_comment,
-          marathi_hindi_exam_exemption_comment,
-          post_service_exam_comment,
-          verification_completed_comment,
-          has_undertaking_been_taken_on_21_12_2021_comment,
-          no_objection_no_inquiry_certificate_comment,
-          retirement_order_comment,
-          date_of_birth_verification_date,
-          medical_certificate_date,
-          nomination_date,
-          permanent_registration_date,
-          computer_exam_passed_date,
-          marathi_hindi_exam_exemption_date,
-          post_service_exam_date,
-          verification_completed_date,
-          has_undertaking_been_taken_on_21_12_2021_date,
-          no_objection_no_inquiry_certificate_date,
-          retirement_order_date,
+          common_progress_comment,
+          common_progress_date,
+          government_decision_march_31_2023,
           overall_comment,
           created_at,
           updated_at
         `)
         .order('age', { ascending: false });
-      
+
       if (error) throw error;
-      
+
       // Update status for each employee based on progress and save to database
       const employeesWithUpdatedStatus = await Promise.all((data || []).map(async (employee) => {
         const calculatedStatus = getProgressStatus(employee);
-        
+
         // Only update if status has changed
         if (employee.status !== calculatedStatus) {
           try {
@@ -227,7 +395,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
               .from('retirement_progress')
               .update({ status: calculatedStatus })
               .eq('id', employee.id);
-            
+
             if (updateError) {
               console.error('Error updating status for employee:', employee.emp_id, updateError);
             } else {
@@ -237,10 +405,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
             console.error('Error updating employee status:', updateError);
           }
         }
-        
+
         return { ...employee, status: calculatedStatus };
       }));
-      
+
       setRetirementProgress(employeesWithUpdatedStatus);
     } catch (error) {
       console.error('Error fetching retirement progress:', error);
@@ -258,15 +426,15 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
         `)
         .eq('roles.name', 'clerk')
         .not('name', 'is', null);
-      
+
       if (error) throw error;
-      
+
       const clerksData = data?.map(clerk => ({
         user_id: clerk.user_id,
         name: clerk.name,
         role_name: clerk.roles?.name || 'clerk'
       })) || [];
-      
+
       setClerks(clerksData);
     } catch (error) {
       console.error('Error fetching clerks:', error);
@@ -279,7 +447,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
         .from('department')
         .select('dept_id, department')
         .order('department');
-      
+
       if (error) throw error;
       setDepartments(data || []);
     } catch (error) {
@@ -298,7 +466,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(emp => 
+      filtered = filtered.filter(emp =>
         String(emp.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         String(emp.employee_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         String(emp.department || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -328,7 +496,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
 
   const getTabFilteredEmployees = () => {
     let filtered = filteredEmployees;
-    
+    console.log("Filtering for tab:", filtered);
     if (activeTab === 'completed') {
       filtered = filtered.filter(emp => getProgressStatus(emp) === 'completed');
     } else if (activeTab === 'pending') {
@@ -336,15 +504,19 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     } else if (activeTab === 'inProgress') {
       filtered = filtered.filter(emp => getProgressStatus(emp) === 'processing');
     }
-    
+
     return filtered;
   };
 
-  const getPaginatedEmployees = () => {
+  const getPaginatedEmployees = () => {debugger
     const tabFiltered = getTabFilteredEmployees();
+    console.log("tabFiltered",tabFiltered);
+    
     const startIndex = (currentPage - 1) * recordsPerPage;
     const endIndex = startIndex + recordsPerPage;
-    return tabFiltered.slice(startIndex, endIndex);
+    console.log("tabFiltered.slice(startIndex, endIndex)",tabFiltered.slice(startIndex, endIndex),startIndex,endIndex);
+    const ReturnedData= tabFiltered.slice(startIndex, endIndex).length!=0? tabFiltered.slice(startIndex, endIndex):tabFiltered;
+    return ReturnedData
   };
 
   const getTotalPages = () => {
@@ -359,7 +531,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     } else if (activeMainTab === 'groupInsurance') {
       return <GroupInsurance user={user} />;
     }
-    
+
     // Default: Retirement Progress content
     return renderRetirementProgressContent();
   };
@@ -367,6 +539,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
   const renderRetirementProgressContent = () => {
     const statusCounts = getStatusCounts();
     const paginatedEmployees = getPaginatedEmployees();
+    console.log("Paginated Employees:", paginatedEmployees);
     const totalPages = getTotalPages();
 
     return (
@@ -430,7 +603,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
               {statusCounts.total > 0 ? Math.round((statusCounts.completed / statusCounts.total) * 100) : 0}% {t('retirementTracker.complete')}
             </span>
           </div>
-          
+
           <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
             <div
               className="bg-gradient-to-r from-orange-500 to-red-500 h-4 rounded-full transition-all duration-300"
@@ -439,7 +612,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
               }}
             />
           </div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div className="bg-gray-50 rounded-lg p-3">
               <div className="text-2xl font-bold text-gray-900">{statusCounts.total}</div>
@@ -466,7 +639,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">{t('retirementTracker.progressRecords')}</h3>
               <div className="flex items-center space-x-3">
-                <button 
+                <button
                   onClick={fetchAllData}
                   className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
                 >
@@ -540,37 +713,34 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                 <span className="text-sm">{t('retirementTracker.clearFilters')}</span>
               </button>
             </div>
-            
+
             {/* Sub Tabs for Retirement Progress */}
             <div className="mt-4">
               <nav className="flex space-x-8">
                 <button
                   onClick={() => setActiveTab('inProgress')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    activeTab === 'inProgress'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'inProgress'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
                 >
                   {t('retirementTracker.inProgress')} ({statusCounts.processing})
                 </button>
                 <button
                   onClick={() => setActiveTab('pending')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    activeTab === 'pending'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'pending'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
                 >
                   {t('retirementTracker.pending')} ({statusCounts.pending})
                 </button>
                 <button
                   onClick={() => setActiveTab('completed')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    activeTab === 'completed'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'completed'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
                 >
                   {t('retirementTracker.completed')} ({statusCounts.completed})
                 </button>
@@ -592,6 +762,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.computerExamPassed')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.marathiHindiExamExemption')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.postServiceExam')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.appointedEmployee')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.validityCertificate')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.verificationCompleted')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.undertakingTaken')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.noObjectionCertificate')}</th>
@@ -619,11 +791,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            status === 'completed' ? 'bg-green-100 text-green-800' :
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === 'completed' ? 'bg-green-100 text-green-800' :
                             status === 'processing' ? 'bg-orange-100 text-orange-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
+                              'bg-red-100 text-red-800'
+                            }`}>
                             {getStatusIcon(status)}
                             <span className="ml-1">{t(`retirementTracker.${status}`)}</span>
                           </span>
@@ -653,6 +824,12 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                           {getStatusIcon(employee.post_service_exam)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
+                          {getStatusIcon(employee.appointed_employee)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          {getStatusIcon(employee.validity_certificate)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
                           {getStatusIcon(employee.verification_completed)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -669,7 +846,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                             <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
                               <Eye className="h-4 w-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleEditEmployee(employee)}
                               className="text-green-600 hover:text-green-900 p-1 rounded"
                             >
@@ -704,24 +881,23 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  
+
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     const pageNum = i + 1;
                     return (
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1 text-sm border rounded-md ${
-                          currentPage === pageNum
-                            ? 'bg-blue-500 text-white border-blue-500'
-                            : 'border-gray-300 hover:bg-gray-50'
-                        }`}
+                        className={`px-3 py-1 text-sm border rounded-md ${currentPage === pageNum
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'border-gray-300 hover:bg-gray-50'
+                          }`}
                       >
                         {pageNum}
                       </button>
                     );
                   })}
-                  
+
                   <button
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
@@ -748,7 +924,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              
+
               <div className="p-6">
                 {/* Basic Employee Info (Read-only) */}
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -787,7 +963,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                 {/* Progress Fields */}
                 <div className="space-y-6">
                   <h4 className="text-md font-semibold text-gray-800">{t('retirementTracker.progressFields')}</h4>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.dateOfBirthVerification')}</label>
@@ -803,21 +979,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.date_of_birth_verification_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, date_of_birth_verification_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.date_of_birth_verification_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, date_of_birth_verification_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.birthDocumentSubmitted')}</label>
                       <select
@@ -831,21 +994,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="Transfer Certificate">Transfer Certificate</option>
                         <option value="Leaving Certificate">Leaving Certificate</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.birth_certificate_doc_submitted_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, birth_certificate_doc_submitted_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.birth_certificate_doc_submitted_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, birth_certificate_doc_submitted_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.medicalCertificate')}</label>
                       <select
@@ -860,21 +1010,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.medical_certificate_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, medical_certificate_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.medical_certificate_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, medical_certificate_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.nomination')}</label>
                       <select
@@ -889,21 +1026,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.nomination_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, nomination_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.nomination_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, nomination_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.permanentRegistration')}</label>
                       <select
@@ -918,21 +1042,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.permanent_registration_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, permanent_registration_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.permanent_registration_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, permanent_registration_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.computerExamPassed')}</label>
                       <select
@@ -947,21 +1058,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.computer_exam_passed_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, computer_exam_passed_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.computer_exam_passed_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, computer_exam_passed_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.marathiHindiExamExemption')}</label>
                       <select
@@ -976,21 +1074,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.marathi_hindi_exam_exemption_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, marathi_hindi_exam_exemption_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.marathi_hindi_exam_exemption_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, marathi_hindi_exam_exemption_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.postServiceExam')}</label>
                       <select
@@ -1005,21 +1090,41 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.post_service_exam_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, post_service_exam_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.post_service_exam_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, post_service_exam_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.validityCertificate')}</label>
+                      <select
+                        value={editingEmployee.validity_certificate || ''}
+                        onChange={(e) => setEditingEmployee({ ...editingEmployee, validity_certificate: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
+                      >
+                        <option value="">{t('retirementTracker.selectStatus')}</option>
+                        <option value="आहे (Available)">आहे (Available)</option>
+                        <option value="नाही (Not Available)">नाही (Not Available)</option>
+                        <option value="लागू नाही (Not Applicable)">लागू नाही (Not Applicable)</option>
+                        <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
+                        <option value="इतर (Other)">इतर (Other)</option>
+                      </select>
+                    </div>
+
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.appointedEmployee')}</label>
+                      <select
+                        value={editingEmployee.appointed_employee || ''}
+                        onChange={(e) => setEditingEmployee({ ...editingEmployee, appointed_employee: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
+                      >
+                        <option value="">{t('retirementTracker.selectStatus')}</option>
+                        <option value="आहे (Available)">आहे (Available)</option>
+                        <option value="नाही (Not Available)">नाही (Not Available)</option>
+                        <option value="लागू नाही (Not Applicable)">लागू नाही (Not Applicable)</option>
+                        <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
+                        <option value="इतर (Other)">इतर (Other)</option>
+                      </select>
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.verificationCompleted')}</label>
                       <select
@@ -1034,21 +1139,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.verification_completed_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, verification_completed_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.verification_completed_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, verification_completed_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.undertakingTaken')}</label>
                       <select
@@ -1063,21 +1155,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.has_undertaking_been_taken_on_21_12_2021_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, has_undertaking_been_taken_on_21_12_2021_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.has_undertaking_been_taken_on_21_12_2021_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, has_undertaking_been_taken_on_21_12_2021_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.noObjectionCertificate')}</label>
                       <select
@@ -1092,21 +1171,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
-                      <input
-                        type="date"
-                        value={editingEmployee.no_objection_no_inquiry_certificate_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, no_objection_no_inquiry_certificate_date: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      />
-                      <textarea
-                        value={editingEmployee.no_objection_no_inquiry_certificate_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, no_objection_no_inquiry_certificate_comment: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
-                        placeholder={t('common.comment')}
-                      />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.retirementOrder')}</label>
                       <select
@@ -1121,36 +1187,55 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
                         <option value="इतर (Other)">इतर (Other)</option>
                       </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.date')}</label>
                       <input
                         type="date"
-                        value={editingEmployee.retirement_order_date || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, retirement_order_date: e.target.value })}
+                        value={editingEmployee.common_progress_date || ''}
+                        onChange={(e) => setEditingEmployee({ ...editingEmployee, common_progress_date: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.comment')}</label>
                       <textarea
-                        value={editingEmployee.retirement_order_comment || ''}
-                        onChange={(e) => setEditingEmployee({ ...editingEmployee, retirement_order_comment: e.target.value })}
+                        value={editingEmployee.common_progress_comment || ''}
+                        onChange={(e) => setEditingEmployee({ ...editingEmployee, common_progress_comment: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        rows={2}
+                        rows={1}
                         placeholder={t('common.comment')}
                       />
                     </div>
-                  </div>
-                  
-                  {/* Overall Comment */}
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.overallComment')}</label>
-                    <textarea
-                      value={editingEmployee.overall_comment || ''}
-                      onChange={(e) => setEditingEmployee({ ...editingEmployee, overall_comment: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      rows={4}
-                      placeholder={t('retirementTracker.enterOverallComment')}
-                    />
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.governmentDecisionMarch2023')}</label>
+                      <div className="space-y-2">
+                        <p className="text-sm text-blue-600 font-medium">
+                          {t('erms.governmentDecisionCompliance')}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {t('erms.employeesHiredAfterNov2005')}
+                        </p>
+                        <select
+                          value={editingEmployee.government_decision_march_31_2023 || ''}
+                          onChange={(e) => setEditingEmployee({ ...editingEmployee, government_decision_march_31_2023: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="">{t('erms.selectStatus')}</option>
+                          <option value="Available">{t('erms.available')}</option>
+                          <option value="Not Available">{t('erms.notAvailable')}</option>
+                          <option value="Exempted">{t('erms.exempted')}</option>
+                          <option value="Not Applicable">{t('erms.notApplicable')}</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
                 <button
                   onClick={() => setShowEditModal(false)}
@@ -1183,7 +1268,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              
+
               <div className="p-6 space-y-6">
                 {/* Basic Employee Info */}
                 <div className="bg-blue-50 rounded-lg p-4">
@@ -1268,6 +1353,21 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                       </span>
                       <span className="text-sm text-gray-700">{t('retirementTracker.dateOfBirthVerification')}</span>
                     </div>
+
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-lg ${viewingRecord.validity_certificate ? 'text-green-600' : 'text-gray-400'}`}>
+                        {viewingRecord.validity_certificate ? '✓' : '○'}
+                      </span>
+                      <span className="text-sm text-gray-700">{t('retirementTracker.validityCertificate')}</span>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-lg ${viewingRecord.appointed_employee ? 'text-green-600' : 'text-gray-400'}`}>
+                        {viewingRecord.appointed_employee ? '✓' : '○'}
+                      </span>
+                      <span className="text-sm text-gray-700">{t('retirementTracker.appointedEmployee')}</span>
+                    </div>
+
                     <div className="flex items-center space-x-2">
                       <span className={`text-lg ${viewingRecord.verification_completed ? 'text-green-600' : 'text-gray-400'}`}>
                         {viewingRecord.verification_completed ? '✓' : '○'}
@@ -1295,15 +1395,35 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                   </div>
                 </div>
 
-                {/* Overall Comments */}
-                {viewingRecord.overall_comment && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">{t('retirementTracker.overallComment')}</h4>
-                    <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                      {viewingRecord.overall_comment}
+                <div className="bg-yellow-50 rounded-lg p-4">
+                  <h4 className="text-md font-semibold text-yellow-800 mb-3">{t('retirementTracker.commonProgress')}</h4>
+                  {viewingRecord.common_progress_date && (
+                    <div className="text-sm text-yellow-900 mb-1">
+                      <strong>{t('retirementTracker.date')}:</strong> {viewingRecord.common_progress_date}
+                    </div>
+                  )}
+                  {viewingRecord.common_progress_comment && (
+                    <div className="text-sm text-yellow-900 whitespace-pre-wrap">
+                      <strong>{t('retirementTracker.comment')}:</strong> {viewingRecord.common_progress_comment}
+                    </div>
+                  )}
+                </div>
+
+                {/* Government Decision */}
+                <div className="mb-6 p-4 bg-purple-50 rounded-lg">
+                  <h4 className="text-md font-semibold text-purple-800 mb-3">{t('erms.governmentDecisionMarch2023')}</h4>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('erms.governmentDecisionCompliance')}</label>
+                      <div className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900">
+                        {viewingRecord.government_decision_march_31_2023 || '-'}
+                      </div>
+                    </div>
+                    <div className="text-xs text-blue-600 bg-blue-50 p-3 rounded-lg">
+                      {t('erms.employeesHiredAfterNov2005')}
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* Progress Summary */}
                 <div className="bg-purple-50 rounded-lg p-4">
@@ -1322,6 +1442,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                             viewingRecord.computer_exam_passed,
                             viewingRecord.marathi_hindi_exam_exemption,
                             viewingRecord.date_of_birth_verification,
+                            viewingRecord.appointed_employee,
+                            viewingRecord.validity_certificate,
                             viewingRecord.verification_completed,
                             viewingRecord.undertaking_taken,
                             viewingRecord.no_objection_certificate,
@@ -1345,10 +1467,13 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                             viewingRecord.computer_exam_passed,
                             viewingRecord.marathi_hindi_exam_exemption,
                             viewingRecord.date_of_birth_verification,
+                            viewingRecord.appointed_employee,
+                            viewingRecord.validity_certificate,
                             viewingRecord.verification_completed,
                             viewingRecord.undertaking_taken,
                             viewingRecord.no_objection_certificate,
-                            viewingRecord.retirement_order
+                            viewingRecord.retirement_order,
+                            viewingRecord.government_decision_march_31_2023
                           ];
                           const completed = fields.filter(field => field === 'आहे' || field === 'होय' || field === 'Yes').length;
                           if (completed === 0) return t('retirementTracker.pending');
@@ -1370,10 +1495,13 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                             viewingRecord.computer_exam_passed,
                             viewingRecord.marathi_hindi_exam_exemption,
                             viewingRecord.date_of_birth_verification,
+                            viewingRecord.appointed_employee,
+                            viewingRecord.validity_certificate,
                             viewingRecord.verification_completed,
                             viewingRecord.undertaking_taken,
                             viewingRecord.no_objection_certificate,
-                            viewingRecord.retirement_order
+                            viewingRecord.retirement_order,
+                            viewingRecord.government_decision_march_31_2023
                           ];
                           const completed = fields.filter(field => field === 'आहे' || field === 'होय' || field === 'Yes').length;
                           return `${completed} / ${fields.length}`;
@@ -1383,7 +1511,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
                 <button
                   onClick={() => {
@@ -1419,14 +1547,19 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
       employee.computer_exam_passed,
       employee.marathi_hindi_exam_exemption,
       employee.post_service_exam,
+      employee.appointed_employee,
+      employee.validity_certificate,
       employee.verification_completed,
       employee.has_undertaking_been_taken_on_21_12_2021,
       employee.no_objection_no_inquiry_certificate,
       employee.retirement_order
     ];
 
-    const filledFields = progressFields.filter(field => 
-      field && field.trim() !== '' && field !== 'नाही (Not Available)'
+    const filledFields = progressFields.filter(field =>
+      field && field.trim() !== '' && 
+      (field === 'आहे (Available)' || 
+       field === 'सुट आहे (Exempted)' || 
+       field === 'लागू नाही (Not Applicable)')
     ).length;
     const totalFields = progressFields.length;
 
@@ -1471,36 +1604,18 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
       computer_exam_passed: record.computer_exam_passed,
       marathi_hindi_exam_exemption: record.marathi_hindi_exam_exemption,
       post_service_exam: record.post_service_exam,
+      appointed_employee: record.appointed_employee,
+      validity_certificate: record.validity_certificate,
       verification_completed: record.verification_completed,
       has_undertaking_been_taken_on_21_12_2021: record.undertaking_taken,
       no_objection_no_inquiry_certificate: record.no_objection_certificate,
       retirement_order: record.retirement_order,
       birth_certificate_doc_submitted: record.birth_doc_submitted,
-      date_of_birth_verification_comment: null,
-      medical_certificate_comment: null,
-      nomination_comment: null,
-      permanent_registration_comment: null,
-      computer_exam_passed_comment: null,
-      marathi_hindi_exam_exemption_comment: null,
-      post_service_exam_comment: null,
-      verification_completed_comment: null,
-      has_undertaking_been_taken_on_21_12_2021_comment: null,
-      no_objection_no_inquiry_certificate_comment: null,
-      retirement_order_comment: null,
-      date_of_birth_verification_date: null,
-      medical_certificate_date: null,
-      nomination_date: null,
-      permanent_registration_date: null,
-      computer_exam_passed_date: null,
-      marathi_hindi_exam_exemption_date: null,
-      post_service_exam_date: null,
-      verification_completed_date: null,
-      has_undertaking_been_taken_on_21_12_2021_date: null,
-      no_objection_no_inquiry_certificate_date: null,
-      retirement_order_date: null,
-      overall_comment: record.overall_comment
+      common_progress_comment: record.common_progress_comment,
+      common_progress_date: record.common_progress_date,
+      government_decision_march_31_2023: record.government_decision_march_31_2023,
     };
-    
+
     setEditingEmployee(employee);
     setShowEditModal(true);
     setShowViewModal(false);
@@ -1513,7 +1628,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     try {
       // Calculate the new status based on the updated data
       const newStatus = getProgressStatus(editingEmployee);
-      
+
       const { error } = await ermsClient
         .from('retirement_progress')
         .update({
@@ -1527,39 +1642,21 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
           computer_exam_passed: editingEmployee.computer_exam_passed,
           marathi_hindi_exam_exemption: editingEmployee.marathi_hindi_exam_exemption,
           post_service_exam: editingEmployee.post_service_exam,
+          appointed_employee: editingEmployee.appointed_employee,
+          validity_certificate: editingEmployee.validity_certificate,
           verification_completed: editingEmployee.verification_completed,
           has_undertaking_been_taken_on_21_12_2021: editingEmployee.has_undertaking_been_taken_on_21_12_2021,
           no_objection_no_inquiry_certificate: editingEmployee.no_objection_no_inquiry_certificate,
           retirement_order: editingEmployee.retirement_order,
           birth_certificate_doc_submitted: editingEmployee.birth_certificate_doc_submitted,
-          date_of_birth_verification_comment: editingEmployee.date_of_birth_verification_comment,
-          medical_certificate_comment: editingEmployee.medical_certificate_comment,
-          nomination_comment: editingEmployee.nomination_comment,
-          permanent_registration_comment: editingEmployee.permanent_registration_comment,
-          computer_exam_passed_comment: editingEmployee.computer_exam_passed_comment,
-          marathi_hindi_exam_exemption_comment: editingEmployee.marathi_hindi_exam_exemption_comment,
-          post_service_exam_comment: editingEmployee.post_service_exam_comment,
-          verification_completed_comment: editingEmployee.verification_completed_comment,
-          has_undertaking_been_taken_on_21_12_2021_comment: editingEmployee.has_undertaking_been_taken_on_21_12_2021_comment,
-          no_objection_no_inquiry_certificate_comment: editingEmployee.no_objection_no_inquiry_certificate_comment,
-          retirement_order_comment: editingEmployee.retirement_order_comment,
-          date_of_birth_verification_date: editingEmployee.date_of_birth_verification_date,
-          medical_certificate_date: editingEmployee.medical_certificate_date,
-          nomination_date: editingEmployee.nomination_date,
-          permanent_registration_date: editingEmployee.permanent_registration_date,
-          computer_exam_passed_date: editingEmployee.computer_exam_passed_date,
-          marathi_hindi_exam_exemption_date: editingEmployee.marathi_hindi_exam_exemption_date,
-          post_service_exam_date: editingEmployee.post_service_exam_date,
-          verification_completed_date: editingEmployee.verification_completed_date,
-          has_undertaking_been_taken_on_21_12_2021_date: editingEmployee.has_undertaking_been_taken_on_21_12_2021_date,
-          no_objection_no_inquiry_certificate_date: editingEmployee.no_objection_no_inquiry_certificate_date,
-          retirement_order_date: editingEmployee.retirement_order_date,
-          overall_comment: editingEmployee.overall_comment
+          common_progress_comment: editingEmployee.common_progress_comment,
+          common_progress_date: editingEmployee.common_progress_date,
+          government_decision_march_31_2023: editingEmployee.government_decision_march_31_2023,
         })
         .eq('id', editingEmployee.id);
 
       if (error) throw error;
-      
+
       await fetchRetirementProgress();
       setShowEditModal(false);
       setEditingEmployee(null);
@@ -1575,27 +1672,27 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     if (!status || status.trim() === '') {
       return <span className="text-gray-400 text-lg">○</span>;
     }
-    
+
     if (status === 'आहे (Available)' || status === 'होय (Yes)' || status === 'पूर्ण (Complete)') {
       return <span className="text-green-600 text-lg">✓</span>;
     }
-    
+
     if (status === 'नाही (Not Available)') {
       return <span className="text-red-600 text-lg">✗</span>;
     }
-    
+
     if (status === 'लागू नाही (Not Applicable)') {
       return <span className="text-blue-600 text-lg">△</span>;
     }
-    
+
     if (status === 'सुट आहे (Exempted)') {
       return <span className="text-purple-600 text-lg">◊</span>;
     }
-    
+
     if (status === 'इतर (Other)') {
       return <span className="text-orange-600 text-lg">◈</span>;
     }
-    
+
     return <span className="text-orange-500 text-lg">◐</span>;
   };
 
@@ -1625,12 +1722,14 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
       record.date_of_birth_verification,
       record.computer_exam_passed,
       record.marathi_hindi_exam_exemption,
+      record.appointed_employee,
       record.verification_completed,
       record.undertaking_taken,
       record.no_objection_certificate,
-      record.retirement_order
+      record.retirement_order,
+      record.validity_certificate
     ];
-    
+
     const completedFields = fields.filter(field => field && field.trim() !== '').length;
     return Math.round((completedFields / fields.length) * 100);
   };
@@ -1649,12 +1748,14 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
       record.date_of_birth_verification,
       record.computer_exam_passed,
       record.marathi_hindi_exam_exemption,
+      record.appointed_employee,
       record.verification_completed,
       record.undertaking_taken,
       record.no_objection_certificate,
-      record.retirement_order
+      record.retirement_order,
+      record.validity_certificate
     ];
-    
+
     return fields.filter(field => field && field.trim() !== '').length;
   };
 
@@ -1680,7 +1781,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
               <p className="text-sm text-gray-500 mt-1">{t('retirementTracker.subtitle')}</p>
             </div>
             <div className="flex items-center space-x-3">
-              <button 
+              <button
                 onClick={fetchAllData}
                 className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
               >
@@ -1698,11 +1799,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
           <nav className="flex space-x-8 px-6 border-b border-gray-200">
             <button
               onClick={() => setActiveMainTab('retirement')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                activeMainTab === 'retirement'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeMainTab === 'retirement'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               <div className="flex items-center space-x-2">
                 <TrendingUp className="h-4 w-4" />
@@ -1711,11 +1811,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
             </button>
             <button
               onClick={() => setActiveMainTab('payCommission')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                activeMainTab === 'payCommission'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeMainTab === 'payCommission'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               <div className="flex items-center space-x-2">
                 <BarChart3 className="h-4 w-4" />
@@ -1724,11 +1823,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
             </button>
             <button
               onClick={() => setActiveMainTab('groupInsurance')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                activeMainTab === 'groupInsurance'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeMainTab === 'groupInsurance'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               <div className="flex items-center space-x-2">
                 <FileText className="h-4 w-4" />
@@ -1767,7 +1865,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                   </button>
                 </div>
               </div>
-              
+
               <div className="p-6 space-y-6">
                 {/* Basic Employee Info */}
                 <div className="bg-blue-50 rounded-lg p-4">
@@ -1813,7 +1911,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.birth_certificate || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.birthDocSubmitted')}</label>
                       <div className="flex items-center space-x-2">
@@ -1823,7 +1921,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.birth_doc_submitted || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.medicalCertificate')}</label>
                       <div className="flex items-center space-x-2">
@@ -1833,7 +1931,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.medical_certificate || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.nomination')}</label>
                       <div className="flex items-center space-x-2">
@@ -1843,7 +1941,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.nomination || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.permanentRegistration')}</label>
                       <div className="flex items-center space-x-2">
@@ -1853,7 +1951,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.permanent_registration || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.computerExam')}</label>
                       <div className="flex items-center space-x-2">
@@ -1863,7 +1961,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.computer_exam || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.languageExam')}</label>
                       <div className="flex items-center space-x-2">
@@ -1873,7 +1971,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.language_exam || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.postServiceExam')}</label>
                       <div className="flex items-center space-x-2">
@@ -1883,7 +1981,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.post_service_exam || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.verification')}</label>
                       <div className="flex items-center space-x-2">
@@ -1893,7 +1991,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.verification || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.dateOfBirthVerification')}</label>
                       <div className="flex items-center space-x-2">
@@ -1903,7 +2001,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.date_of_birth_verification || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.computerExamPassed')}</label>
                       <div className="flex items-center space-x-2">
@@ -1913,7 +2011,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.computer_exam_passed || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.marathiHindiExamExemption')}</label>
                       <div className="flex items-center space-x-2">
@@ -1923,7 +2021,27 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.marathi_hindi_exam_exemption || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.validityCertificate')}</label>
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-lg ${viewingRecord.validity_certificate ? 'text-green-600' : 'text-gray-400'}`}>
+                          {viewingRecord.validity_certificate ? '✓' : '○'}
+                        </span>
+                        <span className="text-sm text-gray-900">{viewingRecord.validity_certificate || 'Not completed'}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.appointedEmployee')}</label>
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-lg ${viewingRecord.appointed_employee ? 'text-green-600' : 'text-gray-400'}`}>
+                          {viewingRecord.appointed_employee ? '✓' : '○'}
+                        </span>
+                        <span className="text-sm text-gray-900">{viewingRecord.appointed_employee || 'Not completed'}</span>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.verificationCompleted')}</label>
                       <div className="flex items-center space-x-2">
@@ -1933,7 +2051,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.verification_completed || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.undertakingTaken')}</label>
                       <div className="flex items-center space-x-2">
@@ -1943,7 +2061,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.undertaking_taken || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.noObjectionCertificate')}</label>
                       <div className="flex items-center space-x-2">
@@ -1953,7 +2071,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                         <span className="text-sm text-gray-900">{viewingRecord.no_objection_certificate || 'Not completed'}</span>
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{t('retirementTracker.retirementOrder')}</label>
                       <div className="flex items-center space-x-2">
@@ -1966,16 +2084,6 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                   </div>
                 </div>
 
-                {/* Overall Comments */}
-                {viewingRecord.overall_comment && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-md font-semibold text-gray-800 mb-3">{t('retirementTracker.overallComment')}</h4>
-                    <div className="text-sm text-gray-900 bg-white px-3 py-2 rounded border">
-                      {viewingRecord.overall_comment}
-                    </div>
-                  </div>
-                )}
-
                 {/* Progress Summary */}
                 <div className="bg-purple-50 rounded-lg p-4">
                   <h4 className="text-md font-semibold text-purple-800 mb-3">Progress Summary</h4>
@@ -1986,14 +2094,13 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Current Status</label>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        getProgressStatus(viewingRecord) === 'completed' ? 'bg-green-100 text-green-800' :
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getProgressStatus(viewingRecord) === 'completed' ? 'bg-green-100 text-green-800' :
                         getProgressStatus(viewingRecord) === 'processing' ? 'bg-orange-100 text-orange-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                          'bg-gray-100 text-gray-800'
+                        }`}>
                         {getProgressStatus(viewingRecord) === 'completed' ? t('retirementTracker.completed') :
-                         getProgressStatus(viewingRecord) === 'processing' ? t('retirementTracker.inProgress') :
-                         t('retirementTracker.pending')}
+                          getProgressStatus(viewingRecord) === 'processing' ? t('retirementTracker.inProgress') :
+                            t('retirementTracker.pending')}
                       </span>
                     </div>
                     <div>

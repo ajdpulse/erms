@@ -64,15 +64,56 @@ interface ClerkData {
 export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
+  
+  // Comprehensive state persistence system
+  const STORAGE_KEYS = {
+    FILTERS: 'group-insurance-filters',
+    ACTIVE_TAB: 'group-insurance-active-tab',
+    MODAL_STATE: 'group-insurance-modal-state',
+    PAGINATION: 'group-insurance-pagination'
+  };
+
+  // Get initial state from localStorage
+  const getInitialState = () => {
+    try {
+      const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
+      const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+      const savedPagination = localStorage.getItem(STORAGE_KEYS.PAGINATION);
+      
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        return {
+          searchTerm: parsed.searchTerm || '',
+          selectedDepartment: parsed.selectedDepartment || '',
+          selectedClerk: parsed.selectedClerk || '',
+          selectedStatus: parsed.selectedStatus || '',
+          activeTab: savedTab || 'inProgress',
+          currentPage: savedPagination ? JSON.parse(savedPagination).currentPage : 1
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load state from localStorage:', error);
+    }
+    return {
+      searchTerm: '',
+      selectedDepartment: '',
+      selectedClerk: '',
+      selectedStatus: '',
+      activeTab: 'inProgress',
+      currentPage: 1
+    };
+  };
+
+  const initialState = getInitialState();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedClerk, setSelectedClerk] = useState('');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClerk, setSelectedClerk] = useState(initialState.selectedClerk);
+  const [selectedDepartment, setSelectedDepartment] = useState(initialState.selectedDepartment);
+  const [selectedStatus, setSelectedStatus] = useState(initialState.selectedStatus);
+  const [searchTerm, setSearchTerm] = useState(initialState.searchTerm);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<GroupInsuranceRecord | null>(null);
-  const [activeTab, setActiveTab] = useState<'inProgress' | 'pending' | 'completed'>('inProgress');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState(initialState.activeTab as 'inProgress' | 'pending' | 'completed');
+  const [currentPage, setCurrentPage] = useState(initialState.currentPage);
   const recordsPerPage = 20;
   
   // Data states
@@ -81,13 +122,88 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
   const [departments, setDepartments] = useState<string[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<GroupInsuranceRecord[]>([]);
 
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Save state
+  const saveState = () => {
+    try {
+      const filterState = {
+        searchTerm,
+        selectedDepartment,
+        selectedClerk,
+        selectedStatus,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(filterState));
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+      localStorage.setItem(STORAGE_KEYS.PAGINATION, JSON.stringify({ currentPage, timestamp: Date.now() }));
+    } catch (error) {
+      console.warn('Failed to save state to localStorage:', error);
+    }
+  };
+
   useEffect(() => {
     fetchAllData();
+    
+    setTimeout(() => {
+      setPersistenceEnabled(true);
+      setIsInitialized(true);
+    }, 100);
+
+    const handleBeforeUnload = () => {
+      if (persistenceEnabled) {
+        saveState();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []);
+
+  // Load modal state (if any) when component initializes
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.MODAL_STATE);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.showEditModal && parsed.editingRecord) {
+          setEditingRecord(parsed.editingRecord);
+          setShowEditModal(true);
+        }
+      }
+    } catch (error) {
+      // ignore
+    }
+  }, []);
+
+  // Save modal state when it changes (after initialization)
+  const saveModalState = (modalState: { showEditModal: boolean; editingRecord: GroupInsuranceRecord | null }) => {
+    try {
+      const stateWithTimestamp = { ...modalState, timestamp: Date.now() };
+      localStorage.setItem(STORAGE_KEYS.MODAL_STATE, JSON.stringify(stateWithTimestamp));
+    } catch (error) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (isInitialized) {
+      saveModalState({ showEditModal, editingRecord });
+    }
+  }, [showEditModal, editingRecord, isInitialized]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      saveState();
+    }
+  }, [searchTerm, selectedDepartment, selectedClerk, selectedStatus, activeTab, currentPage, isInitialized]);
 
   useEffect(() => {
     filterRecords();
-    setCurrentPage(1); // Reset to first page when filters change
   }, [groupInsuranceRecords, selectedClerk, selectedDepartment, selectedStatus, searchTerm, userRole, userProfile]);
 
   // New useEffect for tab switch reset

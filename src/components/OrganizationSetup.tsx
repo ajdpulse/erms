@@ -58,13 +58,61 @@ interface Village {
   updated_at?: string;
 }
 
-export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onBack }) => {debugger;
+export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onBack }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('departments');
+  
+  // Comprehensive state persistence system
+  const STORAGE_KEYS = {
+    ACTIVE_TAB: 'organization-setup-active-tab',
+    SEARCH_TERM: 'organization-setup-search-term',
+    MODAL_STATE: 'organization-setup-modal-state'
+  };
+
+  // Get initial state from localStorage
+  const getInitialState = () => {
+    try {
+      const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+      const savedSearch = localStorage.getItem(STORAGE_KEYS.SEARCH_TERM);
+      return {
+        activeTab: savedTab || 'departments',
+        searchTerm: savedSearch || ''
+      };
+    } catch (error) {
+      console.warn('Failed to load state from localStorage:', error);
+      return {
+        activeTab: 'departments',
+        searchTerm: ''
+      };
+    }
+  };
+
+  // Get initial modal state from localStorage
+  const getInitialModalState = () => {
+    try {
+      const savedModalState = localStorage.getItem(STORAGE_KEYS.MODAL_STATE);
+      if (savedModalState) {
+        const parsed = JSON.parse(savedModalState);
+        return {
+          showAddModal: parsed.showAddModal || false,
+          editingItem: parsed.editingItem || null
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load modal state from localStorage:', error);
+    }
+    return {
+      showAddModal: false,
+      editingItem: null
+    };
+  };
+
+  const initialState = getInitialState();
+  const initialModalState = getInitialModalState();
+  const [activeTab, setActiveTab] = useState(initialState.activeTab);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState(initialState.searchTerm);
+  const [showAddModal, setShowAddModal] = useState(initialModalState.showAddModal);
+  const [editingItem, setEditingItem] = useState<any>(initialModalState.editingItem);
 
   // Data states
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -80,6 +128,40 @@ export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onBack }) 
     address: '',
     taluka_id: ''
   });
+
+  const [persistenceEnabled, setPersistenceEnabled] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Save state
+  const saveState = () => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+      localStorage.setItem(STORAGE_KEYS.SEARCH_TERM, searchTerm);
+    } catch (error) {
+      console.warn('Failed to save state to localStorage:', error);
+    }
+  };
+
+  // Save modal state to localStorage
+  const saveModalState = () => {
+    try {
+      const stateWithTimestamp = {
+        showAddModal,
+        editingItem,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.MODAL_STATE, JSON.stringify(stateWithTimestamp));
+
+      // Broadcast to other tabs
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: STORAGE_KEYS.MODAL_STATE,
+        newValue: JSON.stringify(stateWithTimestamp),
+        storageArea: localStorage
+      }));
+    } catch (error) {
+      console.warn('Failed to save modal state to localStorage:', error);
+    }
+  };
 
   const tabs = [
     {
@@ -110,7 +192,62 @@ export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onBack }) 
 
   useEffect(() => {
     fetchAllData();
+    
+    setTimeout(() => {
+      setPersistenceEnabled(true);
+      setIsInitialized(true);
+    }, 100);
+
+    const handleBeforeUnload = () => {
+      if (persistenceEnabled) {
+        saveState();
+        saveModalState();
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.MODAL_STATE && persistenceEnabled) {
+        // Only load if we're not currently in a modal to prevent resets
+        if (!showAddModal && !editingItem) {
+          try {
+            const saved = e.newValue;
+            if (saved) {
+              const state = JSON.parse(saved);
+              const isRecent = Date.now() - state.timestamp < 24 * 60 * 60 * 1000; // 24 hours
+              
+              if (isRecent && (state.showAddModal || state.editingItem)) {
+                setShowAddModal(state.showAddModal);
+                setEditingItem(state.editingItem);
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to load modal state from storage event:', error);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
+
+  useEffect(() => {
+    if (isInitialized) {
+      saveState();
+    }
+  }, [activeTab, searchTerm, isInitialized]);
+
+  // Auto-save modal state when it changes
+  useEffect(() => {
+    if (isInitialized) {
+      saveModalState();
+    }
+  }, [showAddModal, editingItem, isInitialized]);
 
   const fetchAllData = async () => {
     setIsLoading(true);
