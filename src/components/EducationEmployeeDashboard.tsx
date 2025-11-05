@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
+import {
   Users,
   Calendar,
   UserCheck,
@@ -83,7 +83,7 @@ interface ClerkData {
 export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProps> = ({ onBack }) => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Comprehensive state persistence system
   const STORAGE_KEYS = {
     ACTIVE_TAB: 'education-dashboard-active-tab',
@@ -167,12 +167,12 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
   const [offices, setOffices] = useState<Office[]>([]);
   const [clerks, setClerks] = useState<ClerkData[]>([]);
   const [educationDeptId, setEducationDeptId] = useState<string>('');
-  
+
   // Initialize state with persisted values
   const initialFilters = getInitialFilters();
   const initialPagination = getInitialPagination();
   const initialModalState = getInitialModalState();
-  
+
   // Filter states
   const [searchTerm, setSearchTerm] = useState(initialFilters.searchTerm);
   const [selectedDepartment, setSelectedDepartment] = useState(initialFilters.selectedDepartment);
@@ -181,12 +181,12 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
   const [currentPage, setCurrentPage] = useState(initialPagination.currentPage);
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [recordsPerPage] = useState(initialPagination.recordsPerPage);
-  
+
   // Modal states
   const [showAddModal, setShowAddModal] = useState(initialModalState.showAddModal);
   const [showEditModal, setShowEditModal] = useState(initialModalState.showEditModal);
   const [editingEmployee, setEditingEmployee] = useState<EducationEmployee | null>(initialModalState.editingEmployee);
-  
+
   // Form data
   const [formData, setFormData] = useState<Partial<EducationEmployee>>({
     Cadre: 'C',
@@ -252,7 +252,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
 
   useEffect(() => {
     fetchAllData();
-    
+
     // Enable persistence after initial load
     setTimeout(() => {
       setPersistenceEnabled(true);
@@ -281,7 +281,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
             if (saved) {
               const state = JSON.parse(saved);
               const isRecent = Date.now() - state.timestamp < 24 * 60 * 60 * 1000; // 24 hours
-              
+
               if (isRecent && (state.showAddModal || state.editingEmployee)) {
                 setShowAddModal(state.showAddModal);
                 setShowEditModal(state.showEditModal);
@@ -334,7 +334,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
       fetchEmployees();
     }
   }, [educationDeptId]);
-  
+
   useEffect(() => {
     filterEmployees();
     setCurrentPage(1); // Reset to first page when filters change
@@ -367,7 +367,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         .select('dept_id')
         .eq('department', 'शिक्षण विभाग')
         .single();
-      
+
       if (error) throw error;
       if (data) {
         setEducationDeptId(data.dept_id);
@@ -376,10 +376,10 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
       console.error('Error fetching education department ID:', error);
     }
   };
-  
+
   const fetchEmployees = async () => {
     if (!educationDeptId) return;
-    
+
     try {
       // First get total count
       // First get the total count
@@ -387,13 +387,13 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         .from('employee')
         .select('*', { count: 'exact', head: true })
         .eq('dept_id', educationDeptId);
-      
+
       if (countError) {
         console.error('❌ Error getting employee count:', countError);
       } else {
-       // console.log('📊 Total education employees:', count);
+        // console.log('📊 Total education employees:', count);
       }
-      
+
       // Fetch all records using range - ensure we get ALL records
       const { data, error } = await ermsClient
         .from('employee')
@@ -403,12 +403,12 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         //.limit(5000)
         //.range(0, count ? count - 1 : 9999)
         .order('employee_name');
-      
+
       if (error) {
         console.error('Error fetching employees:', error);
         throw error;
       }
-     // console.log('✅ Employees fetched:', data?.length || 0, 'out of', count);
+      // console.log('✅ Employees fetched:', data?.length || 0, 'out of', count);
       setEmployees(data || []);
       setTotalEmployeeCount(count || data?.length || 0);
     } catch (error) {
@@ -422,7 +422,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         .from('department')
         .select('dept_id, department')
         .order('department');
-      
+
       if (error) throw error;
       setDepartments(data || []);
     } catch (error) {
@@ -436,7 +436,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         .from('designations')
         .select('designation_id, designation')
         .order('designation');
-      
+
       if (error) throw error;
       setDesignations(data || []);
     } catch (error) {
@@ -450,7 +450,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         .from('talukas')
         .select('tal_id, name')
         .order('name');
-      
+
       if (error) throw error;
       setTalukas(data || []);
     } catch (error) {
@@ -464,7 +464,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         .from('office_locations')
         .select('office_id, name')
         .order('name');
-      
+
       if (error) throw error;
       setOffices(data || []);
     } catch (error) {
@@ -483,15 +483,15 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         `)
         .eq('roles.name', 'clerk')
         .not('name', 'is', null);
-      
+
       if (error) throw error;
-      
+
       const clerksData = data?.map(clerk => ({
         user_id: clerk.user_id,
         name: clerk.name,
         role_name: clerk.roles?.name || 'clerk'
       })) || [];
-      
+
       setClerks(clerksData);
     } catch (error) {
       console.error('Error fetching clerks:', error);
@@ -502,8 +502,8 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     let filtered = employees;
 
     if (searchTerm) {
-      filtered = filtered.filter(emp =>  
-         String(emp.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      filtered = filtered.filter(emp =>
+        String(emp.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.employee_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.department?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -543,7 +543,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
       sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
       return retirementDate <= sixMonthsFromNow;
     }).length;
-    
+
     const assigned = employees.filter(emp => emp.assigned_clerk).length; // Use all employees, not filtered
     const unassigned = total - assigned;
 
@@ -575,7 +575,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
       alert('Education department ID not found');
       return;
     }
-    
+
     setIsLoading(true);
     try {
       //console.log("formData", formData);
@@ -608,7 +608,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
           .from('employee')
           .update(employeeData)
           .eq('emp_id', editingEmployee.emp_id);
-        
+
         if (error) throw error;
       } else {
         const { error } = await ermsClient
@@ -617,7 +617,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
             ...employeeData,
             created_at: new Date().toISOString()
           });
-        
+
         if (error) throw error;
       }
 
@@ -642,7 +642,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         .from('employee')
         .delete()
         .eq('emp_id', employee.emp_id);
-      
+
       if (error) throw error;
       await fetchEmployees();
     } catch (error) {
@@ -667,243 +667,244 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Start of New changes to deploy */}
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-white shadow-lg border-b border-gray-300 rounded-b-xl">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <button
                 onClick={onBack}
-                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-300"
               >
                 <ChevronLeft className="h-4 w-4" />
-                <span className="text-sm">Back to General</span>
+                <span className="text-sm font-semibold">Back to General</span>
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Education Department Employees</h1>
-                <p className="text-sm text-gray-500 mt-1">Manage education department employee records and analytics</p>
+                <h1 className="text-2xl font-semibold text-blue-700 tracking-wide">Education Department Employees</h1>
+                <p className="text-sm text-gray-600 mt-1 font-medium tracking-wide">Manage education department employee records and analytics</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button 
+              <button
                 onClick={fetchAllData}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                className="flex items-center space-x-2 px-4 py-2 text-gray-700 hover:text-indigo-700 hover:bg-indigo-100 rounded-lg shadow-sm border border-transparent hover:border-indigo-300 transition-all duration-300"
               >
                 <RefreshCw className="h-4 w-4" />
-                <span className="text-sm font-medium">रिफ्रेश</span>
+                <span className="text-sm font-semibold">रिफ्रेश</span>
               </button>
-              <button 
+              <button
                 onClick={handleAddEmployee}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200"
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-lg transition-all duration-300"
               >
                 <Plus className="h-4 w-4" />
-                <span className="text-sm font-medium">कर्मचारी जोडा</span>
+                <span className="text-sm font-semibold">कर्मचारी जोडा</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-6 bg-indigo-50 rounded-b-xl shadow-inner">
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">{t('erms.totalEmployees')}</p>
-                <p className="text-3xl font-bold text-gray-900">{kpiData.total}</p>
+                <p className="text-xs text-indigo-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.totalEmployees')}</p>
+                <p className="text-2xl font-extrabold text-indigo-900">{kpiData.total}</p>
               </div>
-              <div className="bg-blue-100 p-3 rounded-lg">
-                <Users className="h-8 w-8 text-blue-600" />
+              <div className="bg-gradient-to-tr from-indigo-500 to-purple-600 p-3 rounded-2xl shadow-md">
+                <Users className="h-6 w-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">{t('erms.upcomingRetirements')}</p>
-                <p className="text-3xl font-bold text-orange-600">{kpiData.upcomingRetirements}</p>
-                <p className="text-xs text-gray-500">{t('erms.nextSixMonths')}</p>
+                <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.upcomingRetirements')}</p>
+                <p className="text-2xl font-extrabold text-orange-800">{kpiData.upcomingRetirements}</p>
+                <p className="text-xs text-orange-600 font-medium">{t('erms.nextSixMonths')}</p>
               </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <Calendar className="h-8 w-8 text-orange-600" />
+              <div className="bg-gradient-to-tr from-orange-500 to-yellow-500 p-3 rounded-2xl shadow-md">
+                <Calendar className="h-6 w-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">{t('erms.assigned')}</p>
-                <p className="text-3xl font-bold text-green-600">{kpiData.assigned}</p>
+                <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.assigned')}</p>
+                <p className="text-2xl font-extrabold text-green-900">{kpiData.assigned}</p>
               </div>
-              <div className="bg-green-100 p-3 rounded-lg">
-                <UserCheck className="h-8 w-8 text-green-600" />
+              <div className="bg-gradient-to-tr from-green-500 to-teal-500 p-3 rounded-2xl shadow-md">
+                <UserCheck className="h-6 w-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-md border border-red-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">{t('erms.unassigned')}</p>
-                <p className="text-3xl font-bold text-red-600">{kpiData.unassigned}</p>
+                <p className="text-xs text-red-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.unassigned')}</p>
+                <p className="text-2xl font-extrabold text-red-900">{kpiData.unassigned}</p>
               </div>
-              <div className="bg-red-100 p-3 rounded-lg">
-                <Users className="h-8 w-8 text-red-600" />
+              <div className="bg-gradient-to-tr from-red-500 to-pink-600 p-3 rounded-2xl shadow-md">
+                <Users className="h-6 w-6 text-white" />
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Employee Records Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                {filteredEmployees.length} पैकी {paginatedEmployees.length} कर्मचारी दाखवत आहे (पृष्ठ {currentPage} / {totalPages})
-              </div>
-              <div className="flex items-center space-x-3">
-                <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200">
-                  <Download className="h-4 w-4" />
-                  <span className="text-sm">{t('common.export')}</span>
-                </button>
-              </div>
+      {/* Employee Records Table */}
+      <div className="bg-white rounded-lg shadow-md border border-gray-300">
+        <div className="px-6 py-4 border-b border-gray-300">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              {filteredEmployees.length} पैकी {paginatedEmployees.length} कर्मचारी दाखवत आहे (पृष्ठ {currentPage} / {totalPages})
             </div>
-
-            {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={t('erms.searchEmployees')}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <select
-                value={selectedClerk}
-                onChange={(e) => setSelectedClerk(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">{t('erms.allClerks')}</option>
-                {clerks.map(clerk => (
-                  <option key={clerk.user_id} value={clerk.user_id}>
-                    {clerk.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedReason}
-                onChange={(e) => setSelectedReason(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">{t('erms.allReasons')}</option>
-                <option value="मृत्यू झाल्याने">मृत्यू झाल्याने</option>
-                <option value="नियत वयोमान">नियत वयोमान</option>
-                <option value="स्वेच्छा सेवा निवृत्ती">स्वेच्छा सेवा निवृत्ती</option>
-              </select>
-
-              <button
-                onClick={clearFilters}
-                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-              >
-                <Filter className="h-4 w-4" />
-                <span className="text-sm">Clear Filters</span>
+            <div className="flex items-center space-x-3">
+              <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300">
+                <Download className="h-4 w-4" />
+                <span className="text-sm font-semibold">{t('common.export')}</span>
               </button>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder={t('erms.searchEmployees')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <select
+              value={selectedClerk}
+              onChange={(e) => setSelectedClerk(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">{t('erms.allClerks')}</option>
+              {clerks.map(clerk => (
+                <option key={clerk.user_id} value={clerk.user_id}>
+                  {clerk.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedReason}
+              onChange={(e) => setSelectedReason(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">{t('erms.allReasons')}</option>
+              <option value="मृत्यू झाल्याने">मृत्यू झाल्याने</option>
+              <option value="नियत वयोमान">नियत वयोमान</option>
+              <option value="स्वेच्छा सेवा निवृत्ती">स्वेच्छा सेवा निवृत्ती</option>
+            </select>
+
+            <button
+              onClick={clearFilters}
+              className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
+            >
+              <Filter className="h-4 w-4" />
+              <span className="text-sm font-semibold">Clear Filters</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-blue-50 border-b border-blue-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.employee')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">English Name</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">Gender</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.designation')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">Shalarth ID</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">Teacher Type</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.age')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.retirementDate')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.assignedClerk')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.actions')}</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {paginatedEmployees.length === 0 ? (
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.employee')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">English Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.designation')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shalarth ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teacher Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.age')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.retirementDate')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.assignedClerk')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.actions')}</th>
+                  <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
+                    {isLoading ? 'Loading employees...' : 'No employees found'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedEmployees.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
-                      {isLoading ? 'Loading employees...' : 'No employees found'}
+              ) : (
+                paginatedEmployees.map((employee) => (
+                  <tr key={employee.emp_id} className="hover:bg-blue-50 transition-colors duration-200">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
+                        <div className="text-sm text-gray-500">{employee.emp_id}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {employee.employee_name_en || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {employee.gender || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {designations.find(d => d.designation_id === employee.designation_id)?.designation || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {employee.Shalarth_Id || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {employee.teacher_type || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {employee.age || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {employee.retirement_date ? new Date(employee.retirement_date).toLocaleDateString() : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {employee.assigned_clerk
+                        ? clerks.find(c => c.user_id === employee.assigned_clerk)?.name || t('erms.unassigned')
+                        : t('erms.unassigned')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleEditEmployee(employee)}
+                          className="text-green-600 hover:text-green-900 p-1 rounded"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEmployee(employee)}
+                          className="text-red-600 hover:text-red-900 p-1 rounded"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  paginatedEmployees.map((employee) => (
-                    <tr key={employee.emp_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
-                          <div className="text-sm text-gray-500">{employee.emp_id}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.employee_name_en || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.gender || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {designations.find(d => d.designation_id === employee.designation_id)?.designation || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.Shalarth_Id || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.teacher_type || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.age || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.retirement_date ? new Date(employee.retirement_date).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {employee.assigned_clerk ? 
-                          clerks.find(c => c.user_id === employee.assigned_clerk)?.name || t('erms.unassigned')
-                          : t('erms.unassigned')
-                        }
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-2">
-                          <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleEditEmployee(employee)}
-                            className="text-green-600 hover:text-green-900 p-1 rounded"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteEmployee(employee)}
-                            className="text-red-600 hover:text-red-900 p-1 rounded"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
+                ))
+              )}
+            </tbody>
+          </table>
+          {/* End of New changes to deploy */}
+    
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="px-6 py-4 border-t border-gray-200">
@@ -920,7 +921,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                     <ChevronLeft className="h-4 w-4" />
                     <span>मागील</span>
                   </button>
-                  
+
                   {/* Page numbers */}
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum;
@@ -933,7 +934,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                     } else {
                       pageNum = currentPage - 2 + i;
                     }
-                    
+
                     return (
                       <button
                         key={pageNum}
@@ -942,13 +943,13 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                           currentPage === pageNum
                             ? 'bg-blue-500 text-white border-blue-500'
                             : 'border-gray-300 hover:bg-gray-50'
-                        }`}
+                          }`}
                       >
                         {pageNum}
                       </button>
                     );
                   })}
-                  
+
                   <button
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
@@ -977,7 +978,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -991,7 +992,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                     required
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.employeeName')}</label>
                   <input
@@ -1205,7 +1206,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setShowAddModal(false)}
@@ -1238,7 +1239,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -1250,7 +1251,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.employeeName')}</label>
                   <input
@@ -1454,7 +1455,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setShowEditModal(false)}

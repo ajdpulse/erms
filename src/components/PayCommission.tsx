@@ -472,75 +472,79 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+     {/* KPI Cards */}
+     {/* Start of New changes to deploy */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">{t('retirementTracker.totalCases')}</p>
-              <p className="text-3xl font-bold text-gray-900">{statusCounts.total}</p>
+              <p className="text-xs text-indigo-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.totalCases')}</p>
+              <p className="text-2xl font-extrabold text-indigo-900">{statusCounts.total}</p>
             </div>
-            <div className="bg-blue-100 p-3 rounded-lg">
-              <Users className="h-8 w-8 text-blue-600" />
+            <div className="bg-gradient-to-tr from-indigo-500 to-purple-600 p-3 rounded-2xl shadow-md">
+              <Users className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">{t('retirementTracker.processing')}</p>
-              <p className="text-3xl font-bold text-orange-600">{statusCounts.processing}</p>
+              <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.processing')}</p>
+              <p className="text-2xl font-extrabold text-orange-800">{statusCounts.processing}</p>
+              <p className="text-xs text-orange-600 font-medium">{t('retirementTracker.withSubmissionData')}</p>
             </div>
-            <div className="bg-orange-100 p-3 rounded-lg">
-              <Calendar className="h-8 w-8 text-orange-600" />
+            <div className="bg-gradient-to-tr from-orange-500 to-yellow-500 p-3 rounded-2xl shadow-md">
+              <Calendar className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">{t('retirementTracker.completed')}</p>
-              <p className="text-3xl font-bold text-green-600">{statusCounts.completed}</p>
+              <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.completed')}</p>
+              <p className="text-2xl font-extrabold text-green-900">{statusCounts.completed}</p>
+              <p className="text-xs text-green-600 font-medium">{t('retirementTracker.pensionApproved')}</p>
             </div>
-            <div className="bg-green-100 p-3 rounded-lg">
-              <CheckCircle className="h-8 w-8 text-green-600" />
+            <div className="bg-gradient-to-tr from-green-500 to-teal-500 p-3 rounded-2xl shadow-md">
+              <CheckCircle className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl shadow-md border border-purple-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">{t('retirementTracker.pending')}</p>
-              <p className="text-3xl font-bold text-purple-600">{statusCounts.pending}</p>
+              <p className="text-xs text-purple-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.pending')}</p>
+              <p className="text-2xl font-extrabold text-purple-600">{statusCounts.pending}</p>
+              <p className="text-xs text-purple-600 font-medium">{t('retirementTracker.awaitingApproval')}</p>
             </div>
-            <div className="bg-purple-100 p-3 rounded-lg">
-              <FileText className="h-8 w-8 text-purple-600" />
+            <div className="bg-gradient-to-tr from-purple-500 to-indigo-600 p-3 rounded-2xl shadow-md">
+              <FileText className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Process Overview */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-lg shadow-md border border-gray-300 p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">{t('retirementTracker.processOverview')}</h3>
           <span className="text-sm text-gray-500">
             {statusCounts.total > 0 ? Math.round((statusCounts.completed / statusCounts.total) * 100) : 0}% {t('retirementTracker.complete')}
           </span>
         </div>
-        
+
         <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
           <div
             className="bg-gradient-to-r from-orange-500 to-red-500 h-4 rounded-full transition-all duration-300"
             style={{
-              width: statusCounts.total > 0 ? `${(statusCounts.completed / statusCounts.total) * 100}%` : '0%'
+              width: statusCounts.total > 0 ? `${(statusCounts.completed / statusCounts.total) * 100}%` : '0%',
             }}
           />
         </div>
-        
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div className="bg-gray-50 rounded-lg p-3">
             <div className="text-2xl font-bold text-gray-900">{statusCounts.total}</div>
@@ -562,19 +566,19 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
       </div>
 
       {/* Pay Commission Records Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="bg-white rounded-lg shadow-md border border-gray-300">
+        <div className="px-6 py-4 border-b border-gray-300">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">{t('retirementTracker.payCommission')}</h3>
             <div className="flex items-center space-x-3">
-              <button 
+              <button
                 onClick={fetchAllData}
-                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
               >
                 <RefreshCw className="h-4 w-4" />
                 <span className="text-sm">{t('erms.refresh')}</span>
               </button>
-              <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200">
+              <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300">
                 <Download className="h-4 w-4" />
                 <span className="text-sm">{t('common.export')}</span>
               </button>
@@ -600,7 +604,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">{t('retirementTracker.allDepartments')}</option>
-              {departments.map(dept => (
+              {departments.map((dept) => (
                 <option key={dept} value={dept}>{dept}</option>
               ))}
             </select>
@@ -623,7 +627,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">{t('retirementTracker.allClerks')}</option>
-                {clerks.map(clerk => (
+                {clerks.map((clerk) => (
                   <option key={clerk.user_id} value={clerk.user_id}>
                     {clerk.name}
                   </option>
@@ -633,13 +637,13 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
 
             <button
               onClick={clearFilters}
-              className="flex items-center justify-center space-x-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+              className="flex items-center justify-center space-x-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-300"
             >
               <X className="h-4 w-4" />
               <span className="text-sm">{t('retirementTracker.clearFilters')}</span>
             </button>
           </div>
-          
+
           {/* Tabs */}
           <div className="mt-4">
             <nav className="flex space-x-8">
@@ -678,27 +682,27 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
+          <table className="w-full table-auto border-collapse">
+            <thead className="bg-blue-50 border-b border-blue-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.employee')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.department')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Retirement Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.age')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.assignedClerk')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">4th Pay Commission</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">5th Pay Commission</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">6th Pay Commission</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">7th Pay Commission</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.payProgressScheme')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.departmentProgressScheme')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.actions')}</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.employee')}</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.department')}</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">Retirement Date</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.age')}</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.assignedClerk')}</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">4th Pay Commission</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">5th Pay Commission</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">6th Pay Commission</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">7th Pay Commission</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.payProgressScheme')}</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.departmentProgressScheme')}</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.actions')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {paginatedRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
                     {isLoading ? t('retirementTracker.loadingData') : t('retirementTracker.noRecordsFound')}
                   </td>
                 </tr>
@@ -706,64 +710,41 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                 paginatedRecords.map((record) => {
                   const status = getProgressStatus(record);
                   return (
-                    <tr key={record.id} className="hover:bg-gray-50">
+                    <tr key={record.id} className="hover:bg-blue-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{record.employee_name}</div>
                           <div className="text-sm text-gray-500">{record.emp_id}</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.department || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.retirement_date ? new Date(record.retirement_date).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.age || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.assigned_clerk || t('erms.unassigned')}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.department || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.retirement_date ? new Date(record.retirement_date).toLocaleDateString() : '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.age || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.assigned_clerk || t('erms.unassigned')}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-green-600 text-lg">{record.fourth_pay_comission ? '✓' : '○'}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-green-600 text-lg">
-                          {record.fourth_pay_comission ? '✓' : '○'}
-                        </span>
+                        <span className="text-green-600 text-lg">{record.fifth_pay_comission ? '✓' : '○'}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-green-600 text-lg">
-                          {record.fifth_pay_comission ? '✓' : '○'}
-                        </span>
+                        <span className="text-green-600 text-lg">{record.sixth_pay_comission ? '✓' : '○'}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-green-600 text-lg">
-                          {record.sixth_pay_comission ? '✓' : '○'}
-                        </span>
+                        <span className="text-green-600 text-lg">{record.seventh_pay_comission ? '✓' : '○'}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-green-600 text-lg">
-                          {record.seventh_pay_comission ? '✓' : '○'}
-                        </span>
+                        <span className="text-green-600 text-lg">{getStatusIcon(record.pay_progress_scheme)}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-green-600 text-lg">
-                          {getStatusIcon(record.pay_progress_scheme)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-green-600 text-lg">
-                          {getStatusIcon(record.department_progress_scheme)}
-                        </span>
+                        <span className="text-green-600 text-lg">{getStatusIcon(record.department_progress_scheme)}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center space-x-2">
                           <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
                             <Eye className="h-4 w-4" />
                           </button>
-                          <button 
-                            onClick={() => handleEditRecord(record)}
-                            className="text-green-600 hover:text-green-900 p-1 rounded"
-                          >
+                          <button onClick={() => handleEditRecord(record)} className="text-green-600 hover:text-green-900 p-1 rounded">
                             <Edit className="h-4 w-4" />
                           </button>
                         </div>
@@ -775,6 +756,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
             </tbody>
           </table>
         </div>
+        {/* End of New changes to deploy */}
 
         {/* Pagination */}
         {totalPages > 1 && (

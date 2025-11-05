@@ -544,323 +544,317 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
 
     return (
       <div className="space-y-6">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* Start of New changes to deploy */}
+        {/* <div className="bg-white shadow-lg border-b border-gray-300 rounded-b-xl">
+          <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">{t('retirementTracker.totalCases')}</p>
-                <p className="text-3xl font-bold text-gray-900">{statusCounts.total}</p>
+                <h1 className="text-2xl font-bold text-blue-700">{t('erms.retirementDashboard')}</h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  {userRole === 'clerk'
+                    ? `${t('erms.interactiveClerkView')} - ${userProfile?.name || t('erms.unknownClerk')}`
+                    : t('erms.globalAdministrativeView')}
+                </p>
               </div>
-              <div className="bg-blue-100 p-3 rounded-lg">
-                <Users className="h-8 w-8 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">{t('retirementTracker.processing')}</p>
-                <p className="text-3xl font-bold text-orange-600">{statusCounts.processing}</p>
-              </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <Calendar className="h-8 w-8 text-orange-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">{t('retirementTracker.completed')}</p>
-                <p className="text-3xl font-bold text-green-600">{statusCounts.completed}</p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-lg">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">{t('retirementTracker.pending')}</p>
-                <p className="text-3xl font-bold text-purple-600">{statusCounts.pending}</p>
-              </div>
-              <div className="bg-purple-100 p-3 rounded-lg">
-                <FileText className="h-8 w-8 text-purple-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Process Overview */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">{t('retirementTracker.processOverview')}</h3>
-            <span className="text-sm text-gray-500">
-              {statusCounts.total > 0 ? Math.round((statusCounts.completed / statusCounts.total) * 100) : 0}% {t('retirementTracker.complete')}
-            </span>
-          </div>
-
-          <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
-            <div
-              className="bg-gradient-to-r from-orange-500 to-red-500 h-4 rounded-full transition-all duration-300"
-              style={{
-                width: statusCounts.total > 0 ? `${(statusCounts.completed / statusCounts.total) * 100}%` : '0%'
-              }}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="text-2xl font-bold text-gray-900">{statusCounts.total}</div>
-              <div className="text-sm text-gray-600">{t('retirementTracker.totalCases')}</div>
-            </div>
-            <div className="bg-green-50 rounded-lg p-3">
-              <div className="text-2xl font-bold text-green-600">{statusCounts.completed}</div>
-              <div className="text-sm text-gray-600">{t('retirementTracker.completed')}</div>
-            </div>
-            <div className="bg-orange-50 rounded-lg p-3">
-              <div className="text-2xl font-bold text-orange-600">{statusCounts.processing}</div>
-              <div className="text-sm text-gray-600">{t('retirementTracker.inProgress')}</div>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-3">
-              <div className="text-2xl font-bold text-purple-600">{statusCounts.pending}</div>
-              <div className="text-sm text-gray-600">{t('retirementTracker.pending')}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Records Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">{t('retirementTracker.progressRecords')}</h3>
               <div className="flex items-center space-x-3">
+                {userRole !== 'clerk' && (
+                  <select
+                    value={selectedClerk}
+                    onChange={(e) => setSelectedClerk(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.allClerksGlobalView')}</option>
+                    {clerks.map((clerk) => (
+                      <option key={clerk.user_id} value={clerk.user_id}>
+                        {clerk.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <button
                   onClick={fetchAllData}
-                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                  disabled={isLoading}
+                  className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300 disabled:opacity-50"
                 >
-                  <RefreshCw className="h-4 w-4" />
-                  <span className="text-sm">{t('erms.refresh')}</span>
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span className="text-sm font-semibold">{t('erms.refresh')}</span>
                 </button>
-                <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200">
+                <button
+                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
+                >
                   <Download className="h-4 w-4" />
-                  <span className="text-sm">{t('common.export')}</span>
+                  <span className="text-sm font-semibold">{t('common.export')}</span>
                 </button>
               </div>
             </div>
+          </div>
+        </div> */}
 
-            {/* Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={t('retirementTracker.searchEmployees')}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+        <div className="p-6 bg-indigo-50 rounded-b-xl shadow-inner">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-indigo-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.totalCases')}</p>
+                  <p className="text-2xl font-extrabold text-indigo-900">{statusCounts.total}</p>
+                </div>
+                <div className="bg-gradient-to-tr from-indigo-500 to-purple-600 p-3 rounded-2xl shadow-md">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.processing')}</p>
+                  <p className="text-2xl font-extrabold text-orange-800">{statusCounts.processing}</p>
+                  <p className="text-xs text-orange-600 font-medium">{t('retirementTracker.withSubmissionData')}</p>
+                </div>
+                <div className="bg-gradient-to-tr from-orange-500 to-yellow-500 p-3 rounded-2xl shadow-md">
+                  <Calendar className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.completed')}</p>
+                  <p className="text-2xl font-extrabold text-green-900">{statusCounts.completed}</p>
+                  <p className="text-xs text-green-600 font-medium">{t('retirementTracker.pensionApproved')}</p>
+                </div>
+                <div className="bg-gradient-to-tr from-green-500 to-teal-500 p-3 rounded-2xl shadow-md">
+                  <CheckCircle className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-md border border-purple-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-purple-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.pending')}</p>
+                  <p className="text-2xl font-extrabold text-purple-600">{statusCounts.pending}</p>
+                  <p className="text-xs text-purple-600 font-medium">{t('retirementTracker.awaitingApproval')}</p>
+                </div>
+                <div className="bg-gradient-to-tr from-purple-500 to-indigo-600 p-3 rounded-2xl shadow-md">
+                  <FileText className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Progress Records Table */}
+          <div className="bg-white rounded-lg shadow-md border border-gray-300">
+            <div className="px-6 py-4 border-b border-gray-300">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">{t('retirementTracker.progressRecords')}</h3>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={fetchAllData}
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="text-sm font-semibold">{t('erms.refresh')}</span>
+                  </button>
+                  <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300">
+                    <Download className="h-4 w-4" />
+                    <span className="text-sm font-semibold">{t('common.export')}</span>
+                  </button>
+                </div>
               </div>
 
-              <select
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">{t('retirementTracker.allDepartments')}</option>
-                {departments.map(dept => (
-                  <option key={dept.dept_id} value={dept.department}>
-                    {dept.department}
-                  </option>
-                ))}
-              </select>
+              {/* Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder={t('retirementTracker.searchEmployees')}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">{t('retirementTracker.allStatus')}</option>
-                <option value="pending">{t('retirementTracker.pending')}</option>
-                <option value="processing">{t('retirementTracker.inProgress')}</option>
-                <option value="completed">{t('retirementTracker.completed')}</option>
-              </select>
-
-              {userRole !== 'clerk' && (
                 <select
-                  value={selectedClerk}
-                  onChange={(e) => setSelectedClerk(e.target.value)}
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">{t('retirementTracker.allClerks')}</option>
-                  {clerks.map(clerk => (
-                    <option key={clerk.user_id} value={clerk.user_id}>
-                      {clerk.name}
+                  <option value="">{t('retirementTracker.allDepartments')}</option>
+                  {departments.map((dept) => (
+                    <option key={dept.dept_id} value={dept.department}>
+                      {dept.department}
                     </option>
                   ))}
                 </select>
-              )}
 
-              <button
-                onClick={clearFilters}
-                className="flex items-center justify-center space-x-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-              >
-                <X className="h-4 w-4" />
-                <span className="text-sm">{t('retirementTracker.clearFilters')}</span>
-              </button>
-            </div>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">{t('retirementTracker.allStatus')}</option>
+                  <option value="pending">{t('retirementTracker.pending')}</option>
+                  <option value="processing">{t('retirementTracker.inProgress')}</option>
+                  <option value="completed">{t('retirementTracker.completed')}</option>
+                </select>
 
-            {/* Sub Tabs for Retirement Progress */}
-            <div className="mt-4">
-              <nav className="flex space-x-8">
-                <button
-                  onClick={() => setActiveTab('inProgress')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'inProgress'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                >
-                  {t('retirementTracker.inProgress')} ({statusCounts.processing})
-                </button>
-                <button
-                  onClick={() => setActiveTab('pending')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'pending'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                >
-                  {t('retirementTracker.pending')} ({statusCounts.pending})
-                </button>
-                <button
-                  onClick={() => setActiveTab('completed')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'completed'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                >
-                  {t('retirementTracker.completed')} ({statusCounts.completed})
-                </button>
-              </nav>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.employee')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.status')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.dateOfBirthVerification')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.birthDocumentSubmitted')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.medicalCertificate')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.nomination')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.permanentRegistration')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.computerExamPassed')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.marathiHindiExamExemption')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.postServiceExam')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.appointedEmployee')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.validityCertificate')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.verificationCompleted')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.undertakingTaken')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.noObjectionCertificate')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.retirementOrder')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('retirementTracker.actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedEmployees.length === 0 ? (
-                  <tr>
-                    <td colSpan={15} className="px-6 py-8 text-center text-gray-500">
-                      {isLoading ? t('retirementTracker.loadingData') : t('retirementTracker.noRecordsFound')}
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedEmployees.map((employee) => {
-                    const status = getProgressStatus(employee);
-                    return (
-                      <tr key={employee.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
-                            <div className="text-sm text-gray-500">{employee.emp_id}</div>
-                            <div className="text-xs text-gray-400">{t('retirementTracker.age')}: {employee.age || '-'}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === 'completed' ? 'bg-green-100 text-green-800' :
-                            status === 'processing' ? 'bg-orange-100 text-orange-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                            {getStatusIcon(status)}
-                            <span className="ml-1">{t(`retirementTracker.${status}`)}</span>
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.date_of_birth_verification)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.birth_certificate_doc_submitted)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.medical_certificate)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.nomination)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.permanent_registration)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.computer_exam_passed)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.marathi_hindi_exam_exemption)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.post_service_exam)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.appointed_employee)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.validity_certificate)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.verification_completed)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.has_undertaking_been_taken_on_21_12_2021)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.no_objection_no_inquiry_certificate)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {getStatusIcon(employee.retirement_order)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-2">
-                            <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleEditEmployee(employee)}
-                              className="text-green-600 hover:text-green-900 p-1 rounded"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                {userRole !== 'clerk' && (
+                  <select
+                    value={selectedClerk}
+                    onChange={(e) => setSelectedClerk(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('retirementTracker.allClerks')}</option>
+                    {clerks.map((clerk) => (
+                      <option key={clerk.user_id} value={clerk.user_id}>
+                        {clerk.name}
+                      </option>
+                    ))}
+                  </select>
                 )}
-              </tbody>
-            </table>
+
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center justify-center space-x-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-300"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="text-sm font-semibold">{t('retirementTracker.clearFilters')}</span>
+                </button>
+              </div>
+
+              {/* Sub Tabs for Retirement Progress */}
+              <div className="mt-4">
+                <nav className="flex space-x-8">
+                  <button
+                    onClick={() => setActiveTab('inProgress')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                      activeTab === 'inProgress'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {t('retirementTracker.inProgress')} ({statusCounts.processing})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('pending')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                      activeTab === 'pending'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {t('retirementTracker.pending')} ({statusCounts.pending})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('completed')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                      activeTab === 'completed'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {t('retirementTracker.completed')} ({statusCounts.completed})
+                  </button>
+                </nav>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-blue-50 border-b border-blue-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.employee')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.status')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.dateOfBirthVerification')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.birthDocumentSubmitted')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.medicalCertificate')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.nomination')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.permanentRegistration')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.computerExamPassed')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.marathiHindiExamExemption')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.postServiceExam')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.appointedEmployee')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.validityCertificate')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.verificationCompleted')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.undertakingTaken')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.noObjectionCertificate')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.retirementOrder')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.actions')}</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {paginatedEmployees.length === 0 ? (
+                    <tr>
+                      <td colSpan={15} className="px-6 py-8 text-center text-gray-500">
+                        {isLoading ? t('retirementTracker.loadingData') : t('retirementTracker.noRecordsFound')}
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedEmployees.map((employee) => {
+                      const status = getProgressStatus(employee);
+                      return (
+                        <tr key={employee.id} className="hover:bg-blue-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
+                              <div className="text-sm text-gray-500">{employee.emp_id}</div>
+                              <div className="text-xs text-gray-400">{t('retirementTracker.age')}: {employee.age || '-'}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                status === 'completed'
+                                  ? 'bg-green-100 text-green-800'
+                                  : status === 'processing'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {getStatusIcon(status)}
+                              <span className="ml-1">{t(`retirementTracker.${status}`)}</span>
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.date_of_birth_verification)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.birth_certificate_doc_submitted)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.medical_certificate)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.nomination)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.permanent_registration)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.computer_exam_passed)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.marathi_hindi_exam_exemption)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.post_service_exam)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.appointed_employee)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.validity_certificate)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.verification_completed)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.has_undertaking_been_taken_on_21_12_2021)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.no_objection_no_inquiry_certificate)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.retirement_order)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex items-center space-x-2">
+                              <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleEditEmployee(employee)}
+                                className="text-green-600 hover:text-green-900 p-1 rounded"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
+          {/* End of New changes to deploy */}
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -1772,69 +1766,79 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+    {/* Header */}
+      <div className="bg-white shadow-lg border-b border-gray-300 rounded-b-xl">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{t('retirementTracker.title')}</h1>
-              <p className="text-sm text-gray-500 mt-1">{t('retirementTracker.subtitle')}</p>
+              <h1 className="text-2xl font-semibold text-blue-700 tracking-wide">{t('retirementTracker.title')}</h1>
+              <p className="text-sm text-gray-600 mt-1 font-medium tracking-wide">{t('retirementTracker.subtitle')}</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-4">
               <button
                 onClick={fetchAllData}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                className="flex items-center space-x-3 px-4 py-2 text-gray-700 hover:text-indigo-700 hover:bg-indigo-100 rounded-lg shadow-md border border-transparent hover:border-indigo-300 transition-all duration-300"
               >
-                <RefreshCw className="h-4 w-4" />
-                <span className="text-sm font-medium">{t('erms.refresh')}</span>
+                <RefreshCw className="h-5 w-5" />
+                <span className="text-sm font-semibold">{t('erms.refresh')}</span>
               </button>
             </div>
           </div>
+
+          {/* Start of New changes to deploy */}
+          {/* Tabs */}
+          <div className="mt-6">
+            <nav className="flex space-x-10 max-w-max">
+              <button
+                onClick={() => setActiveMainTab('retirement')}
+                className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${
+                  activeMainTab === 'retirement'
+                    ? 'text-blue-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
+                    : 'text-gray-500 hover:text-blue-700'
+                }`}
+                style={{ borderTop: 'none' }}
+              >
+                <div className="flex items-center space-x-2">
+                  <TrendingUp className="h-4 w-4" />
+                  <span>{t('retirementTracker.retirementProgress')}</span>
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveMainTab('payCommission')}
+                className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${
+                  activeMainTab === 'payCommission'
+                    ? 'text-indigo-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
+                    : 'text-gray-500 hover:text-indigo-700'
+                }`}
+                style={{ borderTop: 'none' }}
+              >
+                <div className="flex items-center space-x-2">
+                  <BarChart3 className="h-4 w-4" />
+                  <span>{t('retirementTracker.payCommission')}</span>
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveMainTab('groupInsurance')}
+                className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${
+                  activeMainTab === 'groupInsurance'
+                    ? 'text-blue-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
+                    : 'text-gray-500 hover:text-blue-700'
+                }`}
+                style={{ borderTop: 'none' }}
+              >
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-4 w-4" />
+                  <span>{t('retirementTracker.groupInsurance')}</span>
+                </div>
+              </button>
+            </nav>
+          </div>
         </div>
       </div>
+      {/* End of New changes to deploy */}
 
-      <div className="p-6">
-        {/* Main Tabs */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <nav className="flex space-x-8 px-6 border-b border-gray-200">
-            <button
-              onClick={() => setActiveMainTab('retirement')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeMainTab === 'retirement'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-            >
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4" />
-                <span>{t('retirementTracker.retirementProgress')}</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveMainTab('payCommission')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeMainTab === 'payCommission'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-            >
-              <div className="flex items-center space-x-2">
-                <BarChart3 className="h-4 w-4" />
-                <span>{t('retirementTracker.payCommission')}</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveMainTab('groupInsurance')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeMainTab === 'groupInsurance'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-            >
-              <div className="flex items-center space-x-2">
-                <FileText className="h-4 w-4" />
-                <span>{t('retirementTracker.groupInsurance')}</span>
-              </div>
-            </button>
-          </nav>
-        </div>
+      {/* Main Tabs with bottom border only */}
+      <div className="p-6 mb-6"> 
 
         {/* Tab Content */}
         {renderMainTabContent()}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
+import {
   Users,
   Calendar,
   CheckCircle,
@@ -69,7 +69,7 @@ interface EditingEmployee extends RetirementEmployee {
 export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, onBack }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
-  
+
   // Comprehensive state persistence system
   const STORAGE_KEYS = {
     ACTIVE_TAB: 'retirement-dashboard-active-tab',
@@ -88,7 +88,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
       const savedMonth = localStorage.getItem(STORAGE_KEYS.SELECTED_MONTH);
       const savedYear = localStorage.getItem(STORAGE_KEYS.SELECTED_YEAR);
       const savedPagination = localStorage.getItem(STORAGE_KEYS.PAGINATION);
-      
+
       return {
         activeTab: savedFilters || 'inProgress',
         selectedClerk: savedClerk || '',
@@ -164,7 +164,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
   // Add missing function definitions
   const getDepartmentWiseData = useCallback(() => {
     const deptCounts: { [key: string]: number } = {};
-    
+
     filteredEmployees.forEach(emp => {
       const dept = emp.department || 'Not Assigned';
       deptCounts[dept] = (deptCounts[dept] || 0) + 1;
@@ -242,7 +242,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
   // Initial data fetch - only run once on mount
   useEffect(() => {
     fetchAllData();
-    
+
     setTimeout(() => {
       setPersistenceEnabled(true);
       setIsInitialized(true);
@@ -315,7 +315,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
 
   const fetchAllData = useCallback(async () => {
     if (isLoading) return; // Prevent multiple simultaneous calls
-    
+
     setIsLoading(true);
     try {
       await Promise.all([
@@ -365,7 +365,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
           designation
         `)
         .order('age', { ascending: false });
-      
+
       if (retirementError) throw retirementError;
 
       // Just set the data without any database updates to prevent loops
@@ -387,15 +387,15 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
         `)
         .eq('roles.name', 'clerk')
         .not('name', 'is', null);
-      
+
       if (error) throw error;
-      
+
       const clerksData = data?.map(clerk => ({
         user_id: clerk.user_id,
         name: clerk.name,
         role_name: clerk.roles?.name || 'clerk'
       })) || [];
-      
+
       setClerks(clerksData);
     } catch (error) {
       console.error('Error fetching clerks:', error);
@@ -453,8 +453,8 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
     filteredEmployees.forEach(emp => {
       if (emp.retirement_date) {
         const retirementDate = new Date(emp.retirement_date);
-        const monthIndex = monthData.findIndex(m => 
-          m.fullDate.getMonth() === retirementDate.getMonth() && 
+        const monthIndex = monthData.findIndex(m =>
+          m.fullDate.getMonth() === retirementDate.getMonth() &&
           m.fullDate.getFullYear() === retirementDate.getFullYear()
         );
         if (monthIndex !== -1) {
@@ -468,7 +468,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
 
   const getClerkWiseData = useCallback(() => {
     const clerkCounts: { [key: string]: number } = {};
-    
+
     filteredEmployees.forEach(emp => {
       const clerk = emp.assigned_clerk || 'Unassigned';
       clerkCounts[clerk] = (clerkCounts[clerk] || 0) + 1;
@@ -482,7 +482,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
 
   const getDesignationWiseData = useCallback(() => {
     const designationCounts: { [key: string]: number } = {};
-    
+
     filteredEmployees.forEach(emp => {
       const designation = emp.designation || 'Not Assigned';
       designationCounts[designation] = (designationCounts[designation] || 0) + 1;
@@ -524,7 +524,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
     try {
       // Calculate the new status based on the updated data
       const newStatus = getProgressStatus(editingEmployee);
-      
+
       const { error } = await ermsClient
         .from('employee_retirement')
         .update({
@@ -545,9 +545,9 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
         .eq('id', editingEmployee.id);
 
       if (error) throw error;
-      
+
       // Update local state instead of refetching to prevent loops
-      setRetirementEmployees(prev => 
+      setRetirementEmployees(prev =>
         prev.map(emp => emp.id === editingEmployee.id ? { ...editingEmployee, status: newStatus } : emp)
       );
       setShowEditModal(false);
@@ -578,10 +578,10 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
       employee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
       employee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
     ];
-    const filledFields = progressFields.filter(field => 
-      field && 
-      field.trim() !== '' && 
-      field !== 'pending' && 
+    const filledFields = progressFields.filter(field =>
+      field &&
+      field.trim() !== '' &&
+      field !== 'pending' &&
       field !== 'प्रलंबित'
     ).length;
     return Math.round((filledFields / progressFields.length) * 100);
@@ -590,7 +590,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
   const handleDownload = useCallback(() => {
     try {
       const tabRecords = getTabFilteredRecords();
-      
+
       // Prepare Excel data with proper headers
       const headers = [
         'Employee ID',
@@ -631,12 +631,12 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
         'Completion Percentage',
         'Status'
       ];
-      
+
       // Convert data to CSV format
       const csvData = tabRecords.map(record => {
         const completionPercentage = getCompletionPercentage(record);
         const status = getProgressStatus(record);
-        
+
         return [
           record.emp_id || '',
           record.employee_name || '',
@@ -676,31 +676,31 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
           status
         ];
       });
-      
+
       // Create CSV content
       const csvContent = [headers, ...csvData]
         .map(row => row.map(field => `\"${field}\"`).join(','))
         .join('\n');
-      
+
       // Create and download the file
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      
+
       // Generate filename with current date and tab
       const currentDate = new Date().toISOString().split('T')[0];
-      const tabName = activeTab === 'inProgress' ? 'In_Progress' : 
-                     activeTab === 'pending' ? 'Pending' : 'Completed';
+      const tabName = activeTab === 'inProgress' ? 'In_Progress' :
+        activeTab === 'pending' ? 'Pending' : 'Completed';
       const filename = `retirement_progress_${tabName}_${currentDate}.csv`;
       link.setAttribute('download', filename);
-      
+
       // Trigger download
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
     } catch (error) {
       console.error('Error downloading data:', error);
       alert(t('common.error') + ': Failed to download data');
@@ -716,16 +716,16 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      {/* Start of New changes to deploy */}
+      <div className="bg-white shadow-lg border-b border-gray-300 rounded-b-xl">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{t('erms.retirementDashboard')}</h1>
+              <h1 className="text-2xl font-bold text-blue-700">{t('erms.retirementDashboard')}</h1>
               <p className="text-sm text-gray-500 mt-1">
-                {userRole === 'clerk' 
+                {userRole === 'clerk'
                   ? `${t('erms.interactiveClerkView')} - ${userProfile?.name || t('erms.unknownClerk')}`
-                  : t('erms.globalAdministrativeView')
-                }
+                  : t('erms.globalAdministrativeView')}
               </p>
             </div>
             <div className="flex items-center space-x-3">
@@ -736,90 +736,90 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">{t('erms.allClerksGlobalView')}</option>
-                  {clerks.map(clerk => (
+                  {clerks.map((clerk) => (
                     <option key={clerk.user_id} value={clerk.user_id}>
                       {clerk.name}
                     </option>
                   ))}
                 </select>
               )}
-              <button 
+              <button
                 onClick={fetchAllData}
                 disabled={isLoading}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 disabled:opacity-50"
+                className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300 disabled:opacity-50"
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span className="text-sm font-medium">{t('erms.refresh')}</span>
+                <span className="text-sm font-semibold">{t('erms.refresh')}</span>
               </button>
-              <button 
+              <button
                 onClick={handleDownload}
-                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
               >
                 <Download className="h-4 w-4" />
-                <span className="text-sm">{t('common.export')}</span>
+                <span className="text-sm font-semibold">{t('common.export')}</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-6 bg-indigo-50 rounded-b-xl shadow-inner">
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">{t('erms.totalRetirements')}</p>
-                <p className="text-3xl font-bold text-gray-900">{statusCounts.total}</p>
+                <p className="text-xs text-indigo-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.totalRetirements')}</p>
+                <p className="text-2xl font-extrabold text-indigo-900">{statusCounts.total}</p>
               </div>
-              <div className="bg-blue-100 p-3 rounded-lg">
-                <Users className="h-8 w-8 text-blue-600" />
+              <div className="bg-gradient-to-tr from-indigo-500 to-purple-600 p-3 rounded-2xl shadow-md">
+                <Users className="h-6 w-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">{t('erms.processing')}</p>
-                <p className="text-3xl font-bold text-orange-600">{statusCounts.processing}</p>
-                <p className="text-xs text-gray-500">{t('erms.withSubmissionData')}</p>
+                <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.processing')}</p>
+                <p className="text-2xl font-extrabold text-orange-800">{statusCounts.processing}</p>
+                <p className="text-xs text-orange-600 font-medium">{t('erms.withSubmissionData')}</p>
               </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <Calendar className="h-8 w-8 text-orange-600" />
+              <div className="bg-gradient-to-tr from-orange-500 to-yellow-500 p-3 rounded-2xl shadow-md">
+                <Calendar className="h-6 w-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">{t('erms.completed')}</p>
-                <p className="text-3xl font-bold text-green-600">{statusCounts.completed}</p>
-                <p className="text-xs text-gray-500">{t('erms.pensionApproved')}</p>
+                <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.completed')}</p>
+                <p className="text-2xl font-extrabold text-green-900">{statusCounts.completed}</p>
+                <p className="text-xs text-green-600 font-medium">{t('erms.pensionApproved')}</p>
               </div>
-              <div className="bg-green-100 p-3 rounded-lg">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="bg-gradient-to-tr from-green-500 to-teal-500 p-3 rounded-2xl shadow-md">
+                <CheckCircle className="h-6 w-6 text-white" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-xl shadow-md border border-purple-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">{t('erms.pending')}</p>
-                <p className="text-3xl font-bold text-purple-600">{statusCounts.pending}</p>
-                <p className="text-xs text-gray-500">{t('erms.awaitingApproval')}</p>
+                <p className="text-xs text-purple-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.pending')}</p>
+                <p className="text-2xl font-extrabold text-purple-600">{statusCounts.pending}</p>
+                <p className="text-xs text-purple-600 font-medium">{t('erms.awaitingApproval')}</p>
               </div>
-              <div className="bg-purple-100 p-3 rounded-lg">
-                <FileText className="h-8 w-8 text-purple-600" />
+              <div className="bg-gradient-to-tr from-purple-500 to-indigo-600 p-3 rounded-2xl shadow-md">
+                <FileText className="h-6 w-6 text-white" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Month-wise Retirement Count Chart */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-md border border-gray-300 p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">{t('erms.monthWiseRetirementCount')}</h3>
             <div className="flex items-center space-x-2">
@@ -854,31 +854,37 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
               </select>
             </div>
           </div>
-          
+
           <div className="space-y-3">
             {monthWiseData.map((item, index) => (
-              <div key={index} className={`flex items-center justify-between ${
-                item.fullDate.getMonth() === selectedMonth && item.fullDate.getFullYear() === selectedYear 
-                  ? 'bg-blue-50 border border-blue-200 rounded-lg p-2' 
-                  : ''
-              }`}>
+              <div
+                key={index}
+                className={`flex items-center justify-between ${item.fullDate.getMonth() === selectedMonth && item.fullDate.getFullYear() === selectedYear
+                    ? 'bg-blue-50 border border-blue-200 rounded-lg p-2'
+                    : ''
+                  }`}
+              >
                 <div className="flex items-center space-x-3 w-20">
-                  <span className={`text-sm font-medium ${
-                    item.fullDate.getMonth() === selectedMonth && item.fullDate.getFullYear() === selectedYear 
-                      ? 'text-blue-700 font-bold' 
-                      : 'text-gray-700'
-                  }`}>{item.month}</span>
+                  <span
+                    className={`text-sm font-medium ${item.fullDate.getMonth() === selectedMonth && item.fullDate.getFullYear() === selectedYear
+                        ? 'text-blue-700 font-bold'
+                        : 'text-gray-700'
+                      }`}
+                  >
+                    {item.month}
+                  </span>
                 </div>
                 <div className="flex-1 mx-4">
                   <div className="w-full bg-gray-200 rounded-full h-6 relative">
                     <div
-                      className={`h-6 rounded-full flex items-center justify-center text-white text-xs font-medium ${
-                        item.fullDate.getMonth() === selectedMonth && item.fullDate.getFullYear() === selectedYear 
-                          ? 'bg-blue-600' 
+                      className={`h-6 rounded-full flex items-center justify-center text-white text-xs font-medium ${item.fullDate.getMonth() === selectedMonth && item.fullDate.getFullYear() === selectedYear
+                          ? 'bg-blue-600'
                           : 'bg-blue-500'
-                      }`}
+                        }`}
                       style={{
-                        width: statusCounts.total > 0 ? `${Math.max((item.count / Math.max(...monthWiseData.map(d => d.count))) * 100, 5)}%` : '0%'
+                        width: statusCounts.total
+                          ? `${Math.max((item.count / Math.max(...monthWiseData.map((d) => d.count))) * 100, 5)}%`
+                          : '0%',
                       }}
                     >
                       {item.count > 0 && item.count}
@@ -891,12 +897,12 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
               </div>
             ))}
           </div>
-          
+
           <div className="mt-4 text-center">
             <p className="text-xs text-gray-500">
-              {t('erms.showing6MonthsCentered', { 
-                month: new Date(0, selectedMonth).toLocaleString('default', { month: 'long' }), 
-                year: selectedYear 
+              {t('erms.showing6MonthsCentered', {
+                month: new Date(0, selectedMonth).toLocaleString('default', { month: 'long' }),
+                year: selectedYear,
               })}
             </p>
           </div>
@@ -905,7 +911,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Department-wise Count */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
+          <div className="bg-white rounded-lg shadow-md border border-gray-300 p-6 flex flex-col">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('erms.departmentWiseRetirementCount')}</h3>
             <div className="space-y-3 overflow-y-auto max-h-80 flex-1">
               {departmentWiseData.slice(0, 10).map((item, index) => (
@@ -919,12 +925,12 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       <div
                         className="h-2 rounded-full bg-blue-500"
                         style={{
-                          width: statusCounts.total > 0 ? `${(item.count / statusCounts.total) * 100}%` : '0%'
+                          width: statusCounts.total ? `${(item.count / statusCounts.total) * 100}%` : '0%',
                         }}
                       />
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      {statusCounts.total > 0 ? Math.round((item.count / statusCounts.total) * 100) : 0}%
+                      {statusCounts.total ? Math.round((item.count / statusCounts.total) * 100) : 0}%
                     </div>
                   </div>
                 </div>
@@ -936,7 +942,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
           </div>
 
           {/* Designation vs Employee Count */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
+          <div className="bg-white rounded-lg shadow-md border border-gray-300 p-6 flex flex-col">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('erms.designationVsEmployeeCount')}</h3>
             <div className="space-y-3 overflow-y-auto max-h-80 flex-1">
               {designationWiseData.map((item, index) => (
@@ -950,12 +956,12 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       <div
                         className="h-2 rounded-full bg-green-500"
                         style={{
-                          width: statusCounts.total > 0 ? `${(item.count / statusCounts.total) * 100}%` : '0%'
+                          width: statusCounts.total ? `${(item.count / statusCounts.total) * 100}%` : '0%',
                         }}
                       />
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      {statusCounts.total > 0 ? Math.round((item.count / statusCounts.total) * 100) : 0}%
+                      {statusCounts.total ? Math.round((item.count / statusCounts.total) * 100) : 0}%
                     </div>
                   </div>
                 </div>
@@ -967,7 +973,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
           </div>
 
           {/* Clerk-wise Employee Count */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex flex-col">
+          <div className="bg-white rounded-lg shadow-md border border-gray-300 p-6 flex flex-col">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('erms.clerkWiseEmployeeCount')}</h3>
             <div className="space-y-3 overflow-y-auto max-h-80 flex-1">
               {clerkWiseData.map((item, index) => (
@@ -981,12 +987,12 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       <div
                         className="h-2 rounded-full bg-purple-500"
                         style={{
-                          width: statusCounts.total > 0 ? `${(item.count / statusCounts.total) * 100}%` : '0%'
+                          width: statusCounts.total ? `${(item.count / statusCounts.total) * 100}%` : '0%',
                         }}
                       />
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      {statusCounts.total > 0 ? Math.round((item.count / statusCounts.total) * 100) : 0}%
+                      {statusCounts.total ? Math.round((item.count / statusCounts.total) * 100) : 0}%
                     </div>
                   </div>
                 </div>
@@ -999,48 +1005,45 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
         </div>
 
         {/* Employee Retirement Records Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
+        <div className="bg-white rounded-lg shadow-md border border-gray-300">
+          <div className="px-6 py-4 border-b border-gray-300">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">{t('erms.retirementProgressTracker')}</h3>
               <div className="flex items-center space-x-3">
-                <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200">
+                <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300">
                   <Download className="h-4 w-4" />
-                  <span className="text-sm">{t('common.export')}</span>
+                  <span className="text-sm font-semibold">{t('common.export')}</span>
                 </button>
               </div>
             </div>
-            
+
             {/* Tabs */}
             <div className="mt-4">
               <nav className="flex space-x-8">
                 <button
                   onClick={() => setActiveTab('inProgress')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    activeTab === 'inProgress'
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'inProgress'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   {t('erms.inProgress')} ({statusCounts.processing})
                 </button>
                 <button
                   onClick={() => setActiveTab('pending')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    activeTab === 'pending'
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'pending'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   {t('erms.pending')} ({statusCounts.pending})
                 </button>
                 <button
                   onClick={() => setActiveTab('completed')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                    activeTab === 'completed'
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'completed'
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   {t('erms.completed')} ({statusCounts.completed})
                 </button>
@@ -1050,20 +1053,20 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
 
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-blue-50 border-b border-blue-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.employee')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.department')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.designation')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.age')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.retirementDate')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.assignedClerk')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.status')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.retirementProgressStatus')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.payCommissionStatus')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.groupInsuranceStatus')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.progress')}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('erms.actions')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.employee')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.department')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.designation')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.age')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.retirementDate')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.assignedClerk')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.status')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.retirementProgressStatus')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.payCommissionStatus')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.groupInsuranceStatus')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.progress')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.actions')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -1098,64 +1101,48 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       employee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
                       employee.retirement_progress_status,
                       employee.pay_commission_status,
-                      employee.group_insurance_status
+                      employee.group_insurance_status,
                     ];
-                    const filledFields = progressFields.filter(field => field && field.trim() !== '').length;
+                    const filledFields = progressFields.filter((field) => field && field.trim() !== '').length;
                     const progressPercentage = Math.round((filledFields / progressFields.length) * 100);
 
                     return (
-                      <tr key={employee.id} className="hover:bg-gray-50">
+                      <tr key={employee.id} className="hover:bg-blue-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
                             <div className="text-sm text-gray-500">{employee.emp_id}</div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {employee.department || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {employee.designation || employee.designation_time_of_retirement || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {employee.age || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {employee.retirement_date ? new Date(employee.retirement_date).toLocaleDateString() : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {employee.assigned_clerk || t('erms.unassigned')}
-                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.department || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.designation || employee.designation_time_of_retirement || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.age || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.retirement_date ? new Date(employee.retirement_date).toLocaleDateString() : '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.assigned_clerk || t('erms.unassigned')}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            status === 'completed' ? 'bg-green-100 text-green-800' :
-                            status === 'processing' ? 'bg-orange-100 text-orange-800' :
-                            'bg-purple-100 text-purple-800'
-                          }`}>
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === 'completed'
+                                ? 'bg-green-100 text-green-800'
+                                : status === 'processing'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : 'bg-purple-100 text-purple-800'
+                              }`}
+                          >
                             {status === 'completed' && <CheckCircle className="h-3 w-3 mr-1" />}
                             {status === 'processing' && <Clock className="h-3 w-3 mr-1" />}
                             {status === 'pending' && <AlertCircle className="h-3 w-3 mr-1" />}
                             {t(`erms.${status}`)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {employee.retirement_progress_status || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {employee.pay_commission_status || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {employee.group_insurance_status || '-'}
-                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.retirement_progress_status || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.pay_commission_status || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.group_insurance_status || '-'}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                               <div
-                                className={`h-2 rounded-full ${
-                                  status === 'completed' ? 'bg-green-500' :
-                                  status === 'processing' ? 'bg-orange-500' :
-                                  'bg-purple-500'
-                                }`}
+                                className={`h-2 rounded-full ${status === 'completed' ? 'bg-green-500' : status === 'processing' ? 'bg-orange-500' : 'bg-purple-500'
+                                  }`}
                                 style={{ width: `${progressPercentage}%` }}
                               />
                             </div>
@@ -1164,16 +1151,10 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex items-center space-x-2">
-                            <button 
-                              onClick={() => handleViewEmployee(employee)}
-                              className="text-blue-600 hover:text-blue-900 p-1 rounded"
-                            >
+                            <button onClick={() => handleViewEmployee(employee)} className="text-blue-600 hover:text-blue-900 p-1 rounded">
                               <Eye className="h-4 w-4" />
                             </button>
-                            <button 
-                              onClick={() => handleEditEmployee(employee)}
-                              className="text-green-600 hover:text-green-900 p-1 rounded"
-                            >
+                            <button onClick={() => handleEditEmployee(employee)} className="text-green-600 hover:text-green-900 p-1 rounded">
                               <Edit className="h-4 w-4" />
                             </button>
                           </div>
@@ -1187,6 +1168,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
           </div>
         </div>
       </div>
+      {/* End of New changes to deploy */}
 
       {/* Edit Employee Modal */}
       {showEditModal && editingEmployee && (
@@ -1201,7 +1183,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6">
               {/* Basic Employee Info (Read-only) */}
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -1249,7 +1231,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.assignedClerk')}</label>
                     <input
@@ -1259,7 +1241,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.dateOfSubmission')}</label>
                     <input
@@ -1269,7 +1251,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.departmentSubmitted')}</label>
                     <input
@@ -1279,7 +1261,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.typeOfPension')}</label>
                     <input
@@ -1289,7 +1271,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.dateOfPensionCaseApproval')}</label>
                     <input
@@ -1299,7 +1281,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.groupInsuranceBenefit')}</label>
                     <input
@@ -1309,7 +1291,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.gratuityBenefit')}</label>
                     <input
@@ -1319,7 +1301,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.leaveEncashmentBenefit')}</label>
                     <input
@@ -1329,7 +1311,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.medicalAllowanceBenefit')}</label>
                     <input
@@ -1339,7 +1321,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.hometownTravelAllowance')}</label>
                     <input
@@ -1349,7 +1331,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.pendingTravelAllowance')}</label>
                     <input
@@ -1359,11 +1341,11 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                                
+
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setShowEditModal(false)}
@@ -1396,7 +1378,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6">
               {/* Basic Employee Info */}
               <div className="mb-6 p-4 bg-blue-50 rounded-lg">
@@ -1553,11 +1535,10 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                     <div className="text-sm text-gray-600">Completion Rate</div>
                   </div>
                   <div className="text-center">
-                    <div className={`text-2xl font-bold ${
-                      getProgressStatus(viewingEmployee) === 'completed' ? 'text-green-600' :
-                      getProgressStatus(viewingEmployee) === 'processing' ? 'text-orange-600' :
-                      'text-purple-600'
-                    }`}>
+                    <div className={`text-2xl font-bold ${getProgressStatus(viewingEmployee) === 'completed' ? 'text-green-600' :
+                        getProgressStatus(viewingEmployee) === 'processing' ? 'text-orange-600' :
+                          'text-purple-600'
+                      }`}>
                       {t(`erms.${getProgressStatus(viewingEmployee)}`)}
                     </div>
                     <div className="text-sm text-gray-600">Current Status</div>
@@ -1575,7 +1556,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                           viewingEmployee.date_of_actual_benefit_provided_for_leave_encashment,
                           viewingEmployee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
                           viewingEmployee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
-                          viewingEmployee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,                         
+                          viewingEmployee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
                         ];
                         return progressFields.filter(field => field && field.trim() !== '').length;
                       })()}/11
@@ -1585,7 +1566,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setShowViewModal(false)}

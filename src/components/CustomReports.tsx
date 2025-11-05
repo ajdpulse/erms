@@ -184,6 +184,8 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
     setAvailableColumns(columnsMap);
   }, [selectedTables, availableTables]);
 
+
+// Start of New changes to deploy
   const tableDefinitions: TableInfo[] = [
     {
       table_name: 'employee',
@@ -198,8 +200,8 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
         { column_name: 'assigned_clerk', display_name: t('erms.assignedClerk'), data_type: 'text' },
         { column_name: 'dept_id', display_name: t('erms.departmentId'), data_type: 'text' },
         { column_name: 'office_id', display_name: t('erms.officeId'), data_type: 'text' },
-        { column_name: 'department', display_name: t('erms.department'), data_type: 'text' },
-        { column_name: 'designation', display_name: t('erms.designation'), data_type: 'text' }
+        //{ column_name: 'department', display_name: t('erms.department'), data_type: 'text' },
+        //{ column_name: 'designation', display_name: t('erms.designation'), data_type: 'text' }
       ]
     },
     {
@@ -209,25 +211,22 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
       columns: [
         { column_name: 'emp_id', display_name: t('erms.employeeId'), data_type: 'text' },
         { column_name: 'employee_name', display_name: t('erms.employeeName'), data_type: 'text' },
-        { column_name: 'birth_certificate_submitted', display_name: t('retirementTracker.birthCertificate'), data_type: 'text' },
-        { column_name: 'birth_document_submitted', display_name: t('retirementTracker.birthDocSubmitted'), data_type: 'text' },
+        { column_name: 'date_of_birth_verification', display_name: t('retirementTracker.dateOfBirthVerification '), data_type: 'text' },
+        { column_name: 'birth_certificate_doc_submitted', display_name: t('retirementTracker.birthDocSubmitted'), data_type: 'text' },
         { column_name: 'medical_certificate', display_name: t('retirementTracker.medicalCertificate'), data_type: 'text' },
         { column_name: 'nomination', display_name: t('retirementTracker.nomination'), data_type: 'text' },
         { column_name: 'permanent_registration', display_name: t('retirementTracker.permanentRegistration'), data_type: 'text' },
-        { column_name: 'computer_exam', display_name: t('retirementTracker.computerExam'), data_type: 'text' },
-        { column_name: 'language_exam', display_name: t('retirementTracker.languageExam'), data_type: 'text' },
         { column_name: 'post_service_exam', display_name: t('retirementTracker.postServiceExam'), data_type: 'text' },
-        { column_name: 'verification', display_name: t('retirementTracker.verification'), data_type: 'text' },
-        { column_name: 'date_of_birth_verification', display_name: t('retirementTracker.dateOfBirthVerification'), data_type: 'text' },
         { column_name: 'computer_exam_passed', display_name: t('retirementTracker.computerExamPassed'), data_type: 'text' },
         { column_name: 'marathi_hindi_exam_exemption', display_name: t('retirementTracker.marathiHindiExamExemption'), data_type: 'text' },
         { column_name: 'verification_completed', display_name: t('retirementTracker.verificationCompleted'), data_type: 'text' },
-        { column_name: 'undertaking_taken', display_name: t('retirementTracker.undertakingTaken'), data_type: 'text' },
-        { column_name: 'no_objection_certificate', display_name: t('retirementTracker.noObjectionCertificate'), data_type: 'text' },
+        { column_name: 'has_undertaking_been_taken_on_21_12_2021', display_name: t('retirementTracker.undertakingTaken'), data_type: 'text' },
+        { column_name: 'no_objection_no_inquiry_certificate', display_name: t('retirementTracker.noObjectionCertificate'), data_type: 'text' },
         { column_name: 'retirement_order', display_name: t('retirementTracker.retirementOrder'), data_type: 'text' },
         { column_name: 'overall_comment', display_name: t('retirementTracker.overallComment'), data_type: 'text' }
       ]
     },
+    // End of New changes to deploy
     {
       table_name: 'pay_commission',
       display_name: t('customReports.payCommission', 'Pay Commission Records'),
@@ -655,7 +654,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                 <BarChart3 className="h-6 w-6 text-teal-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-green-900">
                   {t('customReports.title', 'Custom Reports')}
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
