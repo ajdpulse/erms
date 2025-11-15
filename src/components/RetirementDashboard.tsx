@@ -15,7 +15,8 @@ import {
   Edit,
   BarChart3,
   User,
-  X
+  X,
+  Search
 } from 'lucide-react';
 import { ermsClient, supabase } from '../lib/supabase';
 import { usePermissions } from '../hooks/usePermissions';
@@ -25,6 +26,12 @@ interface RetirementDashboardProps {
   user: SupabaseUser;
   onBack: () => void;
 }
+
+interface Department {
+  dept_id: string;
+  department: string;
+}
+
 
 interface RetirementEmployee {
   id: string;
@@ -125,7 +132,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
 
   const [persistenceEnabled, setPersistenceEnabled] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-
+  const [departments, setDepartments] = useState<Department[]>([]);
   // Save state functions
   const saveState = () => {
     try {
@@ -139,16 +146,91 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
     }
   };
 
+
+  // Get initial filter state
+  const getInitialFilters = () => {
+    try {
+      const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        return {
+          searchTerm: parsed.searchTerm || '',
+          selectedDepartment: parsed.selectedDepartment || '',
+          selectedClerk: parsed.selectedClerk || '',
+          selectedStatus: parsed.selectedStatus || '',
+          activeTab: parsed.activeTab || 'inProgress',
+          currentPage: parsed.currentPage || 1
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load filters from localStorage:', error);
+    }
+    return {
+      searchTerm: '',
+      selectedDepartment: '',
+      selectedClerk: '',
+      selectedStatus: '',
+      activeTab: 'inProgress',
+      currentPage: 1
+    };
+  };
+
+  const initialFilters = getInitialFilters();
+  const [selectedDepartment, setSelectedDepartment] = useState(initialFilters.selectedDepartment);
+  const [selectedStatus, setSelectedStatus] = useState(initialFilters.selectedStatus);
+  const [searchTerm, setSearchTerm] = useState(initialFilters.searchTerm);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedClerk('');
+    setSelectedDepartment('');
+    setSelectedStatus('');
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await ermsClient
+        .from('department') // Use 'department' (singular), not 'departments'
+        .select('dept_id, department')
+        .order('department');
+      if (error) throw error;
+      setDepartments(data || []);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+      setDepartments([]);
+    }
+  };
+
+  const getProgressStatus = (employee: RetirementEmployee) => {
+    // Only include actual data fields, not status fields
+    const progressFields = [
+      employee.date_of_submission,
+      employee.department_submitted,
+      employee.type_of_pension,
+      employee.date_of_pension_case_approval,
+      employee.date_of_actual_benefit_provided_for_group_insurance,
+      employee.date_of_benefit_provided_for_gratuity,
+      employee.date_of_actual_benefit_provided_for_leave_encashment,
+      employee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
+      employee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
+      employee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
+    ];
+
+    const filledFields = progressFields.filter(field => field && field.trim() !== '').length;
+    const totalFields = progressFields.length;
+
+    if (filledFields === 0) return 'pending';
+    if (filledFields === totalFields) return 'completed';
+    return 'processing';
+  };
+
   const filteredEmployees = useMemo(() => {
     let filtered = retirementEmployees;
 
-    // Role-based filtering
     if (userRole === 'clerk' && userProfile?.name) {
-      // Clerk can only see their assigned employees
       filtered = filtered.filter(emp => emp.assigned_clerk === userProfile.name);
     }
 
-    // Clerk filter (for non-clerk users)
     if (selectedClerk && userRole !== 'clerk') {
       const selectedClerkName = clerks.find(c => c.user_id === selectedClerk)?.name;
       if (selectedClerkName) {
@@ -156,8 +238,35 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
       }
     }
 
+    // Department filter
+    if (selectedDepartment) {
+      filtered = filtered.filter(emp => emp.department === selectedDepartment);
+    }
+
+    // Status filter
+    if (selectedStatus) {
+      filtered = filtered.filter(emp => getProgressStatus(emp) === selectedStatus);
+    }
+
+    // Search filter
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      filtered = filtered.filter(emp =>
+        (emp.employee_name || '').toLowerCase().includes(lowerSearch) ||
+        (emp.emp_id || '').toString().toLowerCase().includes(lowerSearch)
+      );
+    }
     return filtered;
-  }, [retirementEmployees, selectedClerk, userRole, userProfile, clerks]);
+  }, [
+    retirementEmployees,
+    userRole,
+    userProfile,
+    clerks,
+    selectedClerk,
+    selectedDepartment,
+    selectedStatus,
+    searchTerm,
+  ]);
 
   const totalPages = useMemo(() => Math.ceil(filteredEmployees.length / employeesPerPage), [filteredEmployees.length, employeesPerPage]);
 
@@ -319,6 +428,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
     setIsLoading(true);
     try {
       await Promise.all([
+        fetchDepartments(),
         fetchRetirementEmployees(),
         fetchClerks()
       ]);
@@ -402,29 +512,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
       setClerks([]); // Set empty array on error
     }
   }, []);
-
-  const getProgressStatus = (employee: RetirementEmployee) => {
-    // Only include actual data fields, not status fields
-    const progressFields = [
-      employee.date_of_submission,
-      employee.department_submitted,
-      employee.type_of_pension,
-      employee.date_of_pension_case_approval,
-      employee.date_of_actual_benefit_provided_for_group_insurance,
-      employee.date_of_benefit_provided_for_gratuity,
-      employee.date_of_actual_benefit_provided_for_leave_encashment,
-      employee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
-      employee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
-      employee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
-    ];
-
-    const filledFields = progressFields.filter(field => field && field.trim() !== '').length;
-    const totalFields = progressFields.length;
-
-    if (filledFields === 0) return 'pending';
-    if (filledFields === totalFields) return 'completed';
-    return 'processing';
-  };
 
   const getStatusCounts = useCallback(() => {
     const total = filteredEmployees.length;
@@ -743,21 +830,13 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                   ))}
                 </select>
               )}
-              <button
-                onClick={fetchAllData}
-                disabled={isLoading}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300 disabled:opacity-50"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span className="text-sm font-semibold">{t('erms.refresh')}</span>
-              </button>
-              <button
+              {/* <button
                 onClick={handleDownload}
                 className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
               >
                 <Download className="h-4 w-4" />
                 <span className="text-sm font-semibold">{t('common.export')}</span>
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
@@ -860,15 +939,15 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
               <div
                 key={index}
                 className={`flex items-center justify-between ${item.fullDate.getMonth() === selectedMonth && item.fullDate.getFullYear() === selectedYear
-                    ? 'bg-blue-50 border border-blue-200 rounded-lg p-2'
-                    : ''
+                  ? 'bg-blue-50 border border-blue-200 rounded-lg p-2'
+                  : ''
                   }`}
               >
                 <div className="flex items-center space-x-3 w-20">
                   <span
                     className={`text-sm font-medium ${item.fullDate.getMonth() === selectedMonth && item.fullDate.getFullYear() === selectedYear
-                        ? 'text-blue-700 font-bold'
-                        : 'text-gray-700'
+                      ? 'text-blue-700 font-bold'
+                      : 'text-gray-700'
                       }`}
                   >
                     {item.month}
@@ -878,8 +957,8 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                   <div className="w-full bg-gray-200 rounded-full h-6 relative">
                     <div
                       className={`h-6 rounded-full flex items-center justify-center text-white text-xs font-medium ${item.fullDate.getMonth() === selectedMonth && item.fullDate.getFullYear() === selectedYear
-                          ? 'bg-blue-600'
-                          : 'bg-blue-500'
+                        ? 'bg-blue-600'
+                        : 'bg-blue-500'
                         }`}
                       style={{
                         width: statusCounts.total
@@ -1010,11 +1089,86 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">{t('erms.retirementProgressTracker')}</h3>
               <div className="flex items-center space-x-3">
-                <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300">
+
+                <button
+                  onClick={fetchAllData}
+                  disabled={isLoading}
+                  className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span className="text-sm font-semibold">{t('erms.refresh')}</span>
+                </button>
+
+                <button
+                  onClick={handleDownload}
+                  disabled={isLoading}
+                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300">
                   <Download className="h-4 w-4" />
                   <span className="text-sm font-semibold">{t('common.export')}</span>
                 </button>
               </div>
+            </div>
+
+            {/* Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder={t('retirementTracker.searchEmployees')}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <select
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">{t('retirementTracker.allDepartments')}</option>
+                {departments.map((dept) => (
+                  <option key={dept.dept_id} value={dept.department}>
+                    {dept.department}
+                  </option>
+                ))}
+              </select>
+
+
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">{t('retirementTracker.allStatus')}</option>
+                <option value="pending">{t('retirementTracker.pending')}</option>
+                <option value="processing">{t('retirementTracker.inProgress')}</option>
+                <option value="completed">{t('retirementTracker.completed')}</option>
+              </select>
+
+              {userRole !== 'clerk' && (
+                <select
+                  value={selectedClerk}
+                  onChange={(e) => setSelectedClerk(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">{t('retirementTracker.allClerks')}</option>
+                  {clerks.map((clerk) => (
+                    <option key={clerk.user_id} value={clerk.user_id}>
+                      {clerk.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <button
+                onClick={clearFilters}
+                className="flex items-center justify-center space-x-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-300"
+              >
+                <X className="h-4 w-4" />
+                <span className="text-sm font-semibold">{t('retirementTracker.clearFilters')}</span>
+              </button>
             </div>
 
             {/* Tabs */}
@@ -1023,8 +1177,8 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 <button
                   onClick={() => setActiveTab('inProgress')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'inProgress'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                 >
                   {t('erms.inProgress')} ({statusCounts.processing})
@@ -1032,8 +1186,8 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 <button
                   onClick={() => setActiveTab('pending')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'pending'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                 >
                   {t('erms.pending')} ({statusCounts.pending})
@@ -1041,8 +1195,8 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 <button
                   onClick={() => setActiveTab('completed')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'completed'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                 >
                   {t('erms.completed')} ({statusCounts.completed})
@@ -1103,8 +1257,16 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       employee.pay_commission_status,
                       employee.group_insurance_status,
                     ];
-                    const filledFields = progressFields.filter((field) => field && field.trim() !== '').length;
-                    const progressPercentage = Math.round((filledFields / progressFields.length) * 100);
+                    const filledFields = progressFields.filter((field, idx) => {
+                      // The last three fields are statuses; treat "pending" (and localized "प्रलंबित") as unfilled
+                      if ([10, 11, 12].includes(idx)) {
+                        return field && field !== 'pending' && field !== t('erms.pending');
+                      }
+                      // All other fields, treat as filled if non-empty string
+                      return field && typeof field === 'string' ? field.trim() !== '' : !!field;
+                    });
+                    const progressPercentage = Math.round((filledFields.length / progressFields.length) * 100);
+
 
                     return (
                       <tr key={employee.id} className="hover:bg-blue-50">
@@ -1122,10 +1284,10 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === 'completed'
-                                ? 'bg-green-100 text-green-800'
-                                : status === 'processing'
-                                  ? 'bg-orange-100 text-orange-800'
-                                  : 'bg-purple-100 text-purple-800'
+                              ? 'bg-green-100 text-green-800'
+                              : status === 'processing'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-purple-100 text-purple-800'
                               }`}
                           >
                             {status === 'completed' && <CheckCircle className="h-3 w-3 mr-1" />}
@@ -1134,9 +1296,52 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                             {t(`erms.${status}`)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.retirement_progress_status || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.pay_commission_status || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.group_insurance_status || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${employee.retirement_progress_status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : employee.retirement_progress_status === 'processing'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-purple-100 text-purple-800'
+                              }`}
+                          >
+                            {employee.retirement_progress_status === 'completed' && <CheckCircle className="h-3 w-3 mr-1" />}
+                            {employee.retirement_progress_status === 'processing' && <Clock className="h-3 w-3 mr-1" />}
+                            {employee.retirement_progress_status === 'pending' && <AlertCircle className="h-3 w-3 mr-1" />}
+                            {t(`erms.${employee.retirement_progress_status || 'pending'}`)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${employee.pay_commission_status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : employee.pay_commission_status === 'processing'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-purple-100 text-purple-800'
+                              }`}
+                          >
+                            {employee.pay_commission_status === 'completed' && <CheckCircle className="h-3 w-3 mr-1" />}
+                            {employee.pay_commission_status === 'processing' && <Clock className="h-3 w-3 mr-1" />}
+                            {employee.pay_commission_status === 'pending' && <AlertCircle className="h-3 w-3 mr-1" />}
+                            {t(`erms.${employee.pay_commission_status || 'pending'}`)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${employee.group_insurance_status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : employee.group_insurance_status === 'processing'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-purple-100 text-purple-800'
+                              }`}
+                          >
+                            {employee.group_insurance_status === 'completed' && <CheckCircle className="h-3 w-3 mr-1" />}
+                            {employee.group_insurance_status === 'processing' && <Clock className="h-3 w-3 mr-1" />}
+                            {employee.group_insurance_status === 'pending' && <AlertCircle className="h-3 w-3 mr-1" />}
+                            {t(`erms.${employee.group_insurance_status || 'pending'}`)}
+                          </span>
+                        </td>
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
@@ -1536,8 +1741,8 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                   </div>
                   <div className="text-center">
                     <div className={`text-2xl font-bold ${getProgressStatus(viewingEmployee) === 'completed' ? 'text-green-600' :
-                        getProgressStatus(viewingEmployee) === 'processing' ? 'text-orange-600' :
-                          'text-purple-600'
+                      getProgressStatus(viewingEmployee) === 'processing' ? 'text-orange-600' :
+                        'text-purple-600'
                       }`}>
                       {t(`erms.${getProgressStatus(viewingEmployee)}`)}
                     </div>

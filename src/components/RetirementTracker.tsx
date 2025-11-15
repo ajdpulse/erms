@@ -198,7 +198,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
   const [clerks, setClerks] = useState<ClerkData[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<RetirementProgress[]>([]);
-
+  
   const [persistenceEnabled, setPersistenceEnabled] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -496,7 +496,6 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
 
   const getTabFilteredEmployees = () => {
     let filtered = filteredEmployees;
-    console.log("Filtering for tab:", filtered);
     if (activeTab === 'completed') {
       filtered = filtered.filter(emp => getProgressStatus(emp) === 'completed');
     } else if (activeTab === 'pending') {
@@ -508,13 +507,11 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     return filtered;
   };
 
-  const getPaginatedEmployees = () => {debugger
+  const getPaginatedEmployees = () => {
     const tabFiltered = getTabFilteredEmployees();
-    console.log("tabFiltered",tabFiltered);
     
     const startIndex = (currentPage - 1) * recordsPerPage;
     const endIndex = startIndex + recordsPerPage;
-    console.log("tabFiltered.slice(startIndex, endIndex)",tabFiltered.slice(startIndex, endIndex),startIndex,endIndex);
     const ReturnedData= tabFiltered.slice(startIndex, endIndex).length!=0? tabFiltered.slice(startIndex, endIndex):tabFiltered;
     return ReturnedData
   };
@@ -539,7 +536,6 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
   const renderRetirementProgressContent = () => {
     const statusCounts = getStatusCounts();
     const paginatedEmployees = getPaginatedEmployees();
-    console.log("Paginated Employees:", paginatedEmployees);
     const totalPages = getTotalPages();
 
     return (
@@ -1615,52 +1611,60 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     setShowViewModal(false);
   };
 
-  const handleUpdateEmployee = async () => {
-    if (!editingEmployee) return;
+ const handleUpdateEmployee = async () => {debugger
+  if (!editingEmployee) return;
 
-    setIsLoading(true);
-    try {
-      // Calculate the new status based on the updated data
-      const newStatus = getProgressStatus(editingEmployee);
+  setIsLoading(true);
+  try {
+    // Calculate the new status based on the updated data
+    const newStatus = getProgressStatus(editingEmployee);
 
-      const { error } = await ermsClient
-        .from('retirement_progress')
-        .update({
-          assigned_clerk: editingEmployee.assigned_clerk,
-          department: editingEmployee.department,
-          status: newStatus,
-          date_of_birth_verification: editingEmployee.date_of_birth_verification,
-          medical_certificate: editingEmployee.medical_certificate,
-          nomination: editingEmployee.nomination,
-          permanent_registration: editingEmployee.permanent_registration,
-          computer_exam_passed: editingEmployee.computer_exam_passed,
-          marathi_hindi_exam_exemption: editingEmployee.marathi_hindi_exam_exemption,
-          post_service_exam: editingEmployee.post_service_exam,
-          appointed_employee: editingEmployee.appointed_employee,
-          validity_certificate: editingEmployee.validity_certificate,
-          verification_completed: editingEmployee.verification_completed,
-          has_undertaking_been_taken_on_21_12_2021: editingEmployee.has_undertaking_been_taken_on_21_12_2021,
-          no_objection_no_inquiry_certificate: editingEmployee.no_objection_no_inquiry_certificate,
-          retirement_order: editingEmployee.retirement_order,
-          birth_certificate_doc_submitted: editingEmployee.birth_certificate_doc_submitted,
-          common_progress_comment: editingEmployee.common_progress_comment,
-          common_progress_date: editingEmployee.common_progress_date,
-          government_decision_march_31_2023: editingEmployee.government_decision_march_31_2023,
-        })
-        .eq('id', editingEmployee.id);
+    const { error: progressError } = await ermsClient
+      .from('retirement_progress')
+      .update({
+        assigned_clerk: editingEmployee.assigned_clerk,
+        department: editingEmployee.department,
+        status: newStatus,
+        date_of_birth_verification: editingEmployee.date_of_birth_verification,
+        medical_certificate: editingEmployee.medical_certificate,
+        nomination: editingEmployee.nomination,
+        permanent_registration: editingEmployee.permanent_registration,
+        computer_exam_passed: editingEmployee.computer_exam_passed,
+        marathi_hindi_exam_exemption: editingEmployee.marathi_hindi_exam_exemption,
+        post_service_exam: editingEmployee.post_service_exam,
+        appointed_employee: editingEmployee.appointed_employee,
+        validity_certificate: editingEmployee.validity_certificate,
+        verification_completed: editingEmployee.verification_completed,
+        has_undertaking_been_taken_on_21_12_2021: editingEmployee.has_undertaking_been_taken_on_21_12_2021,
+        no_objection_no_inquiry_certificate: editingEmployee.no_objection_no_inquiry_certificate,
+        retirement_order: editingEmployee.retirement_order,
+        birth_certificate_doc_submitted: editingEmployee.birth_certificate_doc_submitted,
+        common_progress_comment: editingEmployee.common_progress_comment,
+        common_progress_date: editingEmployee.common_progress_date,
+        government_decision_march_31_2023: editingEmployee.government_decision_march_31_2023,
+      })
+      .eq('id', editingEmployee.id);
 
-      if (error) throw error;
+    const { error: employeeError } = await ermsClient
+      .from('employee_retirement')
+      .update({
+        retirement_progress_status: newStatus,
+      })
+      .eq('emp_id', editingEmployee.emp_id);
 
-      await fetchRetirementProgress();
-      setShowEditModal(false);
-      setEditingEmployee(null);
-    } catch (error) {
-      console.error('Error updating employee:', error);
-      alert(t('common.error') + ': ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    // Handle errors from any call
+    if (progressError || employeeError) throw progressError || employeeError;
+
+    await fetchRetirementProgress();
+    setShowEditModal(false);
+    setEditingEmployee(null);
+  } catch (error) {
+    console.error('Error updating employee:', error);
+    alert(t('common.error') + ': ' + (error.message || error));
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const getStatusIcon = (status: string | null) => {
     if (!status || status.trim() === '') {

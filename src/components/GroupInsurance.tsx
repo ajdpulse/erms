@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
+import {
   Users,
   Calendar,
   CheckCircle,
@@ -64,7 +64,7 @@ interface ClerkData {
 export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
-  
+
   // Comprehensive state persistence system
   const STORAGE_KEYS = {
     FILTERS: 'group-insurance-filters',
@@ -79,7 +79,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
       const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
       const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
       const savedPagination = localStorage.getItem(STORAGE_KEYS.PAGINATION);
-      
+
       if (savedFilters) {
         const parsed = JSON.parse(savedFilters);
         return {
@@ -115,7 +115,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
   const [activeTab, setActiveTab] = useState(initialState.activeTab as 'inProgress' | 'pending' | 'completed');
   const [currentPage, setCurrentPage] = useState(initialState.currentPage);
   const recordsPerPage = 20;
-  
+
   // Data states
   const [groupInsuranceRecords, setGroupInsuranceRecords] = useState<GroupInsuranceRecord[]>([]);
   const [clerks, setClerks] = useState<ClerkData[]>([]);
@@ -145,7 +145,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
 
   useEffect(() => {
     fetchAllData();
-    
+
     setTimeout(() => {
       setPersistenceEnabled(true);
       setIsInitialized(true);
@@ -266,9 +266,9 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
           year_2020_date
         `)
         .order('employee_name');
-      
+
       if (error) throw error;
-      
+
       setGroupInsuranceRecords(data || []);
     } catch (error) {
       console.error('Error fetching group insurance records:', error);
@@ -286,15 +286,15 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
         `)
         .eq('roles.name', 'clerk')
         .not('name', 'is', null);
-      
+
       if (error) throw error;
-      
+
       const clerksData = data?.map(clerk => ({
         user_id: clerk.user_id,
         name: clerk.name,
         role_name: clerk.roles?.name || 'clerk'
       })) || [];
-      
+
       setClerks(clerksData);
     } catch (error) {
       console.error('Error fetching clerks:', error);
@@ -401,13 +401,13 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
     setShowEditModal(true);
   };
 
-  const handleUpdateRecord = async () => {
+  const handleUpdateRecord = async () => {debugger
     if (!editingRecord) return;
     setIsLoading(true);
     try {
       const newStatus = getProgressStatus(editingRecord);
-      
-      const { error } = await ermsClient
+
+      const { error: insuranceError } = await ermsClient
         .from('group_insurance')
         .update({
           year_1990: editingRecord.year_1990,
@@ -427,18 +427,26 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
         })
         .eq('id', editingRecord.id);
 
-      if (error) throw error;
-      
+      const { error: employeeError } = await ermsClient
+        .from('employee_retirement')
+        .update({
+          group_insurance_status: newStatus,
+        })
+        .eq('emp_id', editingRecord.emp_id);
+
+      if (insuranceError || employeeError) throw insuranceError || employeeError;
+
       await fetchGroupInsuranceRecords();
       setShowEditModal(false);
       setEditingRecord(null);
     } catch (error) {
       console.error('Error updating record:', error);
-      alert(t('common.error') + ': ' + (error as Error).message);
+      alert(t('common.error') + ': ' + (error.message || error));
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -460,11 +468,10 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
       <button
         key="first"
         onClick={() => setCurrentPage(1)}
-        className={`px-3 py-1 text-sm border rounded-md ${
-          currentPage === 1
+        className={`px-3 py-1 text-sm border rounded-md ${currentPage === 1
             ? 'bg-blue-500 text-white border-blue-500'
             : 'border-gray-300 hover:bg-gray-50'
-        }`}
+          }`}
       >
         1
       </button>
@@ -484,11 +491,10 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
         <button
           key={i}
           onClick={() => setCurrentPage(i)}
-          className={`px-3 py-1 text-sm border rounded-md ${
-            currentPage === i
+          className={`px-3 py-1 text-sm border rounded-md ${currentPage === i
               ? 'bg-blue-500 text-white border-blue-500'
               : 'border-gray-300 hover:bg-gray-50'
-          }`}
+            }`}
         >
           {i}
         </button>
@@ -506,11 +512,10 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
         <button
           key="last"
           onClick={() => setCurrentPage(totalPages)}
-          className={`px-3 py-1 text-sm border rounded-md ${
-            currentPage === totalPages
+          className={`px-3 py-1 text-sm border rounded-md ${currentPage === totalPages
               ? 'bg-blue-500 text-white border-blue-500'
               : 'border-gray-300 hover:bg-gray-50'
-          }`}
+            }`}
         >
           {totalPages}
         </button>
@@ -526,8 +531,8 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
 
   return (
     <div className="space-y-6">
-     {/* KPI Cards */}
-     {/* Start of New changes to deploy */}
+      {/* KPI Cards */}
+      {/* Start of New changes to deploy */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
           <div className="flex items-center justify-between">
@@ -700,31 +705,28 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
             <nav className="flex space-x-8">
               <button
                 onClick={() => setActiveTab('inProgress')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'inProgress'
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'inProgress'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 {t('retirementTracker.inProgress')} ({statusCounts.processing})
               </button>
               <button
                 onClick={() => setActiveTab('pending')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'pending'
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'pending'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 {t('retirementTracker.pending')} ({statusCounts.pending})
               </button>
               <button
                 onClick={() => setActiveTab('completed')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'completed'
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'completed'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 {t('retirementTracker.completed')} ({statusCounts.completed})
               </button>
@@ -820,11 +822,11 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                
+
                 <div className="flex space-x-1">
                   {renderPageButtons()}
                 </div>
-                
+
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
@@ -851,7 +853,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6">
               {/* Basic Employee Info (Read-only) */}
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -904,7 +906,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       <option value="सुट आहे">सुट आहे (Exempted)</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">1990 Date</label>
                     <input
@@ -914,7 +916,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">2003 Year</label>
                     <select
@@ -929,7 +931,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       <option value="सुट आहे">सुट आहे (Exempted)</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">2003 Date</label>
                     <input
@@ -939,7 +941,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">2010 Year</label>
                     <select
@@ -954,7 +956,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       <option value="सुट आहे">सुट आहे (Exempted)</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">2010 Date</label>
                     <input
@@ -964,7 +966,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">2020 Year</label>
                     <select
@@ -979,7 +981,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       <option value="सुट आहे">सुट आहे (Exempted)</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">2020 Date</label>
                     <input
@@ -990,7 +992,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                     />
                   </div>
                 </div>
-                
+
                 {/* Year Comments */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1003,7 +1005,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       placeholder="Enter comment for 1990"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">2003 Comment</label>
                     <textarea
@@ -1014,7 +1016,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       placeholder="Enter comment for 2003"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">2010 Comment</label>
                     <textarea
@@ -1025,7 +1027,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       placeholder="Enter comment for 2010"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">2020 Comment</label>
                     <textarea
@@ -1037,7 +1039,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                     />
                   </div>
                 </div>
-                
+
                 {/* Overall Comments */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Overall Comments</label>
@@ -1051,7 +1053,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setShowEditModal(false)}

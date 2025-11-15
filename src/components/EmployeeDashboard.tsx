@@ -716,7 +716,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     setShowAddModal(true);
   };
 
-  const handleEditEmployee = (employee: Employee) => {debugger
+  const handleEditEmployee = (employee: Employee) => {
     setEditingEmployee(employee);
     setFormData({
       emp_id: employee.emp_id,
@@ -737,7 +737,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     setShowEditModal(true);
   };
 
-  const handleSaveEmployee = async () => {debugger
+  const handleSaveEmployee = async () => {
     if (!formData.emp_id || !formData.employee_name || !formData.date_of_birth) {
       alert('Employee ID, name, and date of birth are required');
       return;

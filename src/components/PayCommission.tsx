@@ -389,47 +389,56 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     setShowEditModal(true);
   };
 
-  const handleUpdateRecord = async () => {
-    if (!editingRecord) return;
+ const handleUpdateRecord = async () => {debugger
+  if (!editingRecord) return;
 
-    setIsLoading(true);
-    try {
-      const newStatus = getProgressStatus(editingRecord);
-      
-      const { error } = await ermsClient
-        .from('pay_commission')
-        .update({
-          fourth_pay_comission: editingRecord.fourth_pay_comission,
-          fifth_pay_comission: editingRecord.fifth_pay_comission,
-          sixth_pay_comission: editingRecord.sixth_pay_comission,
-          seventh_pay_comission: editingRecord.seventh_pay_comission,
-          comments: editingRecord.comments,
-          fourth_pay_comission_comment: editingRecord.fourth_pay_comission_comment,
-          fifth_pay_comission_comment: editingRecord.fifth_pay_comission_comment,
-          sixth_pay_comission_comment: editingRecord.sixth_pay_comission_comment,
-          seventh_pay_comission_comment: editingRecord.seventh_pay_comission_comment,
-          pay_progress_scheme: editingRecord.pay_progress_scheme,
-          department_progress_scheme: editingRecord.department_progress_scheme,
-          fourth_pay_comission_date: editingRecord.fourth_pay_comission_date,
-          fifth_pay_comission_date: editingRecord.fifth_pay_comission_date,
-          sixth_pay_comission_date: editingRecord.sixth_pay_comission_date,
-          seventh_pay_comission_date: editingRecord.seventh_pay_comission_date,
-          last_updated: new Date().toISOString()
-        })
-        .eq('id', editingRecord.id);
+  setIsLoading(true);
+  try {
+    const newStatus = getProgressStatus(editingRecord);
+    
+    const { error: payCommError } = await ermsClient
+      .from('pay_commission')
+      .update({
+        fourth_pay_comission: editingRecord.fourth_pay_comission,
+        fifth_pay_comission: editingRecord.fifth_pay_comission,
+        sixth_pay_comission: editingRecord.sixth_pay_comission,
+        seventh_pay_comission: editingRecord.seventh_pay_comission,
+        comments: editingRecord.comments,
+        fourth_pay_comission_comment: editingRecord.fourth_pay_comission_comment,
+        fifth_pay_comission_comment: editingRecord.fifth_pay_comission_comment,
+        sixth_pay_comission_comment: editingRecord.sixth_pay_comission_comment,
+        seventh_pay_comission_comment: editingRecord.seventh_pay_comission_comment,
+        pay_progress_scheme: editingRecord.pay_progress_scheme,
+        department_progress_scheme: editingRecord.department_progress_scheme,
+        fourth_pay_comission_date: editingRecord.fourth_pay_comission_date,
+        fifth_pay_comission_date: editingRecord.fifth_pay_comission_date,
+        sixth_pay_comission_date: editingRecord.sixth_pay_comission_date,
+        seventh_pay_comission_date: editingRecord.seventh_pay_comission_date,
+        last_updated: new Date().toISOString()
+      })
+      .eq('id', editingRecord.id);
 
-      if (error) throw error;
-      
-      await fetchPayCommissionRecords();
-      setShowEditModal(false);
-      setEditingRecord(null);
-    } catch (error) {
-      console.error('Error updating record:', error);
-      alert(t('common.error') + ': ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const { error: employeeError } = await ermsClient
+      .from('employee_retirement')
+      .update({
+        pay_commission_status: newStatus,
+      })
+      .eq('emp_id', editingRecord.emp_id);
+
+    // If any update errors, throw
+    if (payCommError || employeeError) throw payCommError || employeeError;
+    
+    await fetchPayCommissionRecords();
+    setShowEditModal(false);
+    setEditingRecord(null);
+  } catch (error) {
+    console.error('Error updating record:', error);
+    alert(t('common.error') + ': ' + (error.message || error));
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const clearFilters = () => {
     setSearchTerm('');
