@@ -1611,7 +1611,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     setShowViewModal(false);
   };
 
- const handleUpdateEmployee = async () => {debugger
+ const handleUpdateEmployee = async () => {
   if (!editingEmployee) return;
 
   setIsLoading(true);

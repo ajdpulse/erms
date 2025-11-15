@@ -389,7 +389,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     setShowEditModal(true);
   };
 
- const handleUpdateRecord = async () => {debugger
+ const handleUpdateRecord = async () => {
   if (!editingRecord) return;
 
   setIsLoading(true);
