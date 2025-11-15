@@ -147,6 +147,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
   const [currentPage, setCurrentPage] = useState(initialPagination.currentPage);
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [recordsPerPage, setRecordsPerPage] = useState(initialPagination.recordsPerPage);
+  const [filterType, setFilterType] = useState<string>('');
 
   const [activeTab, setActiveTab] = useState(getInitialActiveTab());
 
@@ -454,7 +455,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
   useEffect(() => {
     filterEmployees();
-  }, [employees, searchTerm, selectedDepartment, selectedClerk, selectedReason, selectedCadre]);
+  }, [employees, searchTerm, selectedDepartment, selectedClerk, selectedReason, selectedCadre, filterType]);
 
   const fetchAllData = async () => {
     setIsLoading(true);
@@ -649,12 +650,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     }
   };
 
+  // Update the filterEmployees function to include upcomingRetirements filter
   const filterEmployees = () => {
     let filtered = employees;
 
     if (searchTerm) {
       filtered = filtered.filter(emp =>
-        String(emp.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(emp.emp_id).toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.employee_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.department?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -662,7 +664,6 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
     if (selectedDepartment) {
       filtered = filtered.filter(emp => String(emp.dept_id) === selectedDepartment);
-
     }
 
     if (selectedClerk) {
@@ -673,8 +674,22 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       filtered = filtered.filter(emp => emp.reason === selectedReason);
     }
 
+    if (filterType === 'upcomingRetirements') {
+      const sixMonthsFromNow = new Date();
+      sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+      filtered = filtered.filter(emp => {
+        if (!emp.retirement_date) return false;
+        const retirementDate = new Date(emp.retirement_date);
+        return retirementDate <= sixMonthsFromNow;
+      });
+    } else if (filterType === 'assigned') {
+      filtered = filtered.filter(emp => emp.assigned_clerk);
+    } else if (filterType === 'unassigned') {
+      filtered = filtered.filter(emp => !emp.assigned_clerk);
+    }
+
     setFilteredEmployees(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   // Pagination calculations
@@ -936,6 +951,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     setSelectedReason('');
     setSelectedCadre('');
     setCurrentPage(1);
+    setFilterType('');
   };
 
   const assignedCount = employees.filter(emp => emp.assigned_clerk).length;
@@ -984,8 +1000,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
               <button
                 onClick={() => setActiveTab('general')}
                 className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${activeTab === 'general'
-                    ? 'text-blue-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
-                    : 'text-gray-500 hover:text-blue-700'
+                  ? 'text-blue-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
+                  : 'text-gray-500 hover:text-blue-700'
                   }`}
                 style={{ borderTop: 'none' }}
               >
@@ -994,8 +1010,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
               <button
                 onClick={() => setActiveTab('education')}
                 className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${activeTab === 'education'
-                    ? 'text-indigo-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
-                    : 'text-gray-500 hover:text-indigo-700'
+                  ? 'text-indigo-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
+                  : 'text-gray-500 hover:text-indigo-700'
                   }`}
                 style={{ borderTop: 'none' }}
               >
@@ -1009,7 +1025,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       {/* KPI Cards */}
       <div className="p-6 bg-indigo-50 rounded-b-xl shadow-inner">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div
+            className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+            onClick={() => {
+              setFilterType('total');
+              setTimeout(filterEmployees, 0);
+            }}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-indigo-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.totalEmployees')}</p>
@@ -1021,11 +1043,17 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div
+            className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+            onClick={() => {
+              setFilterType('upcomingRetirements');
+              setTimeout(filterEmployees, 0);
+            }}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.upcomingRetirements')}</p>
-                <p className="text-2xl font-extrabold text-orange-800">{upcomingRetirements}</p>
+                <p className="text-2xl font-extrabold text-orange-800">{calculateUpcomingRetirements()}</p>
                 <p className="text-xs text-orange-600 font-medium">{t('erms.nextSixMonths')}</p>
               </div>
               <div className="bg-gradient-to-tr from-orange-500 to-yellow-500 p-3 rounded-2xl shadow-md">
@@ -1034,7 +1062,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div
+            className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+            onClick={() => {
+              setFilterType('assigned');
+              setTimeout(filterEmployees, 0);
+            }}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.assigned')}</p>
@@ -1046,7 +1080,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-red-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div
+            className="bg-white rounded-xl shadow-md border border-red-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+            onClick={() => {
+              setFilterType('unassigned');
+              setTimeout(filterEmployees, 0);
+            }}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-red-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.unassigned')}</p>
@@ -1285,497 +1325,497 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
       {/* Add Employee Modal */}
       {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">{t('erms.addEmployee')}</h3>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                  disabled={isLoading}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">{t('erms.addEmployee')}</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                disabled={isLoading}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.panchayatrajsevarthId')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.panchayatrajsevarth_id || ''}
-                      onChange={(e) => setFormData({ ...formData, panchayatrajsevarth_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.panchayatrajsevarthId')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.panchayatrajsevarth_id || ''}
+                    onChange={(e) => setFormData({ ...formData, panchayatrajsevarth_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.employeeIdInternal')} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.emp_id || ''}
-                      onChange={(e) => setFormData({ ...formData, emp_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                      maxLength={50}
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.employeeIdInternal')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.emp_id || ''}
+                    onChange={(e) => setFormData({ ...formData, emp_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                    maxLength={50}
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.employeeName')} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.employee_name || ''}
-                      onChange={(e) => setFormData({ ...formData, employee_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                      maxLength={100}
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.employeeName')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.employee_name || ''}
+                    onChange={(e) => setFormData({ ...formData, employee_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                    maxLength={100}
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.dateOfBirth')} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.date_of_birth || ''}
-                      onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.dateOfBirth')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.date_of_birth || ''}
+                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.ddoCode')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.ddo_code || ''}
-                      onChange={(e) => setFormData({ ...formData, ddo_code: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.ddoCode')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.ddo_code || ''}
+                    onChange={(e) => setFormData({ ...formData, ddo_code: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.Cadre')} <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.Cadre || ''}
-                      onChange={(e) => setFormData({ ...formData, Cadre: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    >
-                      <option value="">Select Cadre</option>
-                      <option value="C">C</option>
-                      <option value="D">D</option>
-                    </select>
-                    {formData.Cadre && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Currently selected Cadre: <span className="font-semibold">{formData.Cadre}</span>
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.dateOfJoining')}
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.date_of_joining || ''}
-                      onChange={(e) => setFormData({ ...formData, date_of_joining: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.retirementDate')}
-                    </label>
-                    <input
-                      type="date"
-                      value={calculateRetirementDate(formData.date_of_birth, formData.Cadre) || ''}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
-                      title="Retirement date is auto-calculated based on date of birth and Cadre"
-                    />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.Cadre')} <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.Cadre || ''}
+                    onChange={(e) => setFormData({ ...formData, Cadre: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Select Cadre</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                  </select>
+                  {formData.Cadre && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Auto-calculated: Cadre C = 58 years, Cadre D = 60 years (last day of month)
+                      Currently selected Cadre: <span className="font-semibold">{formData.Cadre}</span>
                     </p>
-                  </div>
+                  )}
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.retirementReason')}
-                    </label>
-                    <select
-                      value={formData.reason || ''}
-                      onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectReason')}</option>
-                      <option value="मृत्यू झाल्याने">मृत्यू झाल्याने</option>
-                      <option value="नियत वयोमान">नियत वयोमान</option>
-                      <option value="स्वेच्छा सेवा निवृत्ती">स्वेच्छा सेवा निवृत्ती</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.dateOfJoining')}
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.date_of_joining || ''}
+                    onChange={(e) => setFormData({ ...formData, date_of_joining: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.department')}
-                    </label>
-                    <select
-                      value={formData.dept_id || ''}
-                      onChange={(e) => setFormData({ ...formData, dept_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectDepartment')}</option>
-                      {department.map(dept => (
-                        <option key={dept.dept_id} value={dept.dept_id}>{dept.department}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.retirementDate')}
+                  </label>
+                  <input
+                    type="date"
+                    value={calculateRetirementDate(formData.date_of_birth, formData.Cadre) || ''}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                    title="Retirement date is auto-calculated based on date of birth and Cadre"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Auto-calculated: Cadre C = 58 years, Cadre D = 60 years (last day of month)
+                  </p>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.designation')}
-                    </label>
-                    <select
-                      value={formData.designation_id || ''}
-                      onChange={(e) => setFormData({ ...formData, designation_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectDesignation')}</option>
-                      {designations.map(designation => (
-                        <option key={designation.designation_id} value={designation.designation_id}>{designation.designation}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.retirementReason')}
+                  </label>
+                  <select
+                    value={formData.reason || ''}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectReason')}</option>
+                    <option value="मृत्यू झाल्याने">मृत्यू झाल्याने</option>
+                    <option value="नियत वयोमान">नियत वयोमान</option>
+                    <option value="स्वेच्छा सेवा निवृत्ती">स्वेच्छा सेवा निवृत्ती</option>
+                  </select>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.taluka')}
-                    </label>
-                    <select
-                      value={formData.tal_id || ''}
-                      onChange={(e) => setFormData({ ...formData, tal_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectTaluka')}</option>
-                      {talukas.map(taluka => (
-                        <option key={taluka.tal_id} value={taluka.tal_id}>{taluka.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.department')}
+                  </label>
+                  <select
+                    value={formData.dept_id || ''}
+                    onChange={(e) => setFormData({ ...formData, dept_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectDepartment')}</option>
+                    {department.map(dept => (
+                      <option key={dept.dept_id} value={dept.dept_id}>{dept.department}</option>
+                    ))}
+                  </select>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.office')}
-                    </label>
-                    <select
-                      value={formData.office_id || ''}
-                      onChange={(e) => setFormData({ ...formData, office_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectOffice')}</option>
-                      {offices.map(office => (
-                        <option key={office.office_id} value={office.office_id}>{office.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.designation')}
+                  </label>
+                  <select
+                    value={formData.designation_id || ''}
+                    onChange={(e) => setFormData({ ...formData, designation_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectDesignation')}</option>
+                    {designations.map(designation => (
+                      <option key={designation.designation_id} value={designation.designation_id}>{designation.designation}</option>
+                    ))}
+                  </select>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.assignedClerk')}
-                    </label>
-                    <select
-                      value={formData.assigned_clerk || ''}
-                      onChange={(e) => setFormData({ ...formData, assigned_clerk: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectClerk')}</option>
-                      {clerks.map(clerk => (
-                        <option key={clerk.user_id} value={clerk.user_id}>{clerk.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.taluka')}
+                  </label>
+                  <select
+                    value={formData.tal_id || ''}
+                    onChange={(e) => setFormData({ ...formData, tal_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectTaluka')}</option>
+                    {talukas.map(taluka => (
+                      <option key={taluka.tal_id} value={taluka.tal_id}>{taluka.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.office')}
+                  </label>
+                  <select
+                    value={formData.office_id || ''}
+                    onChange={(e) => setFormData({ ...formData, office_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectOffice')}</option>
+                    {offices.map(office => (
+                      <option key={office.office_id} value={office.office_id}>{office.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.assignedClerk')}
+                  </label>
+                  <select
+                    value={formData.assigned_clerk || ''}
+                    onChange={(e) => setFormData({ ...formData, assigned_clerk: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectClerk')}</option>
+                    {clerks.map(clerk => (
+                      <option key={clerk.user_id} value={clerk.user_id}>{clerk.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
+            </div>
 
-              <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  onClick={handleSaveEmployee}
-                  disabled={isLoading}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50"
-                >
-                  {isLoading ? t('common.saving') : t('common.save')}
-                </button>
-              </div>
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleSaveEmployee}
+                disabled={isLoading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50"
+              >
+                {isLoading ? t('common.saving') : t('common.save')}
+              </button>
             </div>
           </div>
+        </div>
       )}
 
       {/* Edit Employee Modal */}
       {showEditModal && editingEmployee && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">{t('erms.editEmployee')}</h3>
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                  disabled={isLoading}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">{t('erms.editEmployee')}</h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                disabled={isLoading}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.panchayatrajsevarthId')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.panchayatrajsevarth_id || ''}
-                      onChange={(e) => setFormData({ ...formData, panchayatrajsevarth_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.panchayatrajsevarthId')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.panchayatrajsevarth_id || ''}
+                    onChange={(e) => setFormData({ ...formData, panchayatrajsevarth_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.employeeIdInternal')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.emp_id || ''}
-                      onChange={(e) => setFormData({ ...formData, emp_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
-                      disabled
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Employee ID cannot be changed during edit</p>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.employeeIdInternal')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.emp_id || ''}
+                    onChange={(e) => setFormData({ ...formData, emp_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                    disabled
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Employee ID cannot be changed during edit</p>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.employeeName')} <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.employee_name || ''}
-                      onChange={(e) => setFormData({ ...formData, employee_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                      maxLength={100}
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.employeeName')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.employee_name || ''}
+                    onChange={(e) => setFormData({ ...formData, employee_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                    maxLength={100}
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.dateOfBirth')}
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.date_of_birth || ''}
-                      onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.dateOfBirth')}
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.date_of_birth || ''}
+                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.ddoCode')}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.ddo_code || ''}
-                      onChange={(e) => setFormData({ ...formData, ddo_code: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.ddoCode')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.ddo_code || ''}
+                    onChange={(e) => setFormData({ ...formData, ddo_code: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.Cadre')} <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.Cadre || ''}
-                      onChange={(e) => setFormData({ ...formData, Cadre: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    >
-                      <option value="">Select Cadre</option>
-                      <option value="C">C</option>
-                      <option value="D">D</option>
-                    </select>
-                    {formData.Cadre && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Currently selected Cadre: <span className="font-semibold">{formData.Cadre}</span>
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.dateOfJoining')}
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.date_of_joining || ''}
-                      onChange={(e) => setFormData({ ...formData, date_of_joining: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.retirementDate')}
-                    </label>
-                    <input
-                      type="date"
-                      value={calculateRetirementDate(formData.date_of_birth, formData.Cadre) || ''}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
-                      title="Retirement date is auto-calculated based on date of birth and Cadre"
-                    />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.Cadre')} <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.Cadre || ''}
+                    onChange={(e) => setFormData({ ...formData, Cadre: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Select Cadre</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                  </select>
+                  {formData.Cadre && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Auto-calculated: Cadre C = 58 years, Cadre D = 60 years (last day of month)
+                      Currently selected Cadre: <span className="font-semibold">{formData.Cadre}</span>
                     </p>
-                  </div>
+                  )}
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.retirementReason')}
-                    </label>
-                    <select
-                      value={formData.reason || ''}
-                      onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectReason')}</option>
-                      <option value="मृत्यू झाल्याने">मृत्यू झाल्याने</option>
-                      <option value="नियत वयोमान">नियत वयोमान</option>
-                      <option value="स्वेच्छा सेवा निवृत्ती">स्वेच्छा सेवा निवृत्ती</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.dateOfJoining')}
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.date_of_joining || ''}
+                    onChange={(e) => setFormData({ ...formData, date_of_joining: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.department')}
-                    </label>
-                    <select
-                      value={formData.dept_id || ''}
-                      onChange={(e) => setFormData({ ...formData, dept_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectDepartment')}</option>
-                      {department.map(dept => (
-                        <option key={dept.dept_id} value={dept.dept_id}>{dept.department}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.retirementDate')}
+                  </label>
+                  <input
+                    type="date"
+                    value={calculateRetirementDate(formData.date_of_birth, formData.Cadre) || ''}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                    title="Retirement date is auto-calculated based on date of birth and Cadre"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Auto-calculated: Cadre C = 58 years, Cadre D = 60 years (last day of month)
+                  </p>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.designation')}
-                    </label>
-                    <select
-                      value={formData.designation_id || ''}
-                      onChange={(e) => setFormData({ ...formData, designation_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectDesignation')}</option>
-                      {designations.map(designation => (
-                        <option key={designation.designation_id} value={designation.designation_id}>{designation.designation}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.retirementReason')}
+                  </label>
+                  <select
+                    value={formData.reason || ''}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectReason')}</option>
+                    <option value="मृत्यू झाल्याने">मृत्यू झाल्याने</option>
+                    <option value="नियत वयोमान">नियत वयोमान</option>
+                    <option value="स्वेच्छा सेवा निवृत्ती">स्वेच्छा सेवा निवृत्ती</option>
+                  </select>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.taluka')}
-                    </label>
-                    <select
-                      value={formData.tal_id || ''}
-                      onChange={(e) => setFormData({ ...formData, tal_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectTaluka')}</option>
-                      {talukas.map(taluka => (
-                        <option key={taluka.tal_id} value={taluka.tal_id}>{taluka.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.department')}
+                  </label>
+                  <select
+                    value={formData.dept_id || ''}
+                    onChange={(e) => setFormData({ ...formData, dept_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectDepartment')}</option>
+                    {department.map(dept => (
+                      <option key={dept.dept_id} value={dept.dept_id}>{dept.department}</option>
+                    ))}
+                  </select>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.office')}
-                    </label>
-                    <select
-                      value={formData.office_id || ''}
-                      onChange={(e) => setFormData({ ...formData, office_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectOffice')}</option>
-                      {offices.map(office => (
-                        <option key={office.office_id} value={office.office_id}>{office.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.designation')}
+                  </label>
+                  <select
+                    value={formData.designation_id || ''}
+                    onChange={(e) => setFormData({ ...formData, designation_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectDesignation')}</option>
+                    {designations.map(designation => (
+                      <option key={designation.designation_id} value={designation.designation_id}>{designation.designation}</option>
+                    ))}
+                  </select>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('erms.assignedClerk')}
-                    </label>
-                    <select
-                      value={formData.assigned_clerk || ''}
-                      onChange={(e) => setFormData({ ...formData, assigned_clerk: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">{t('erms.selectClerk')}</option>
-                      {clerks.map(clerk => (
-                        <option key={clerk.user_id} value={clerk.user_id}>{clerk.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.taluka')}
+                  </label>
+                  <select
+                    value={formData.tal_id || ''}
+                    onChange={(e) => setFormData({ ...formData, tal_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectTaluka')}</option>
+                    {talukas.map(taluka => (
+                      <option key={taluka.tal_id} value={taluka.tal_id}>{taluka.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.office')}
+                  </label>
+                  <select
+                    value={formData.office_id || ''}
+                    onChange={(e) => setFormData({ ...formData, office_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectOffice')}</option>
+                    {offices.map(office => (
+                      <option key={office.office_id} value={office.office_id}>{office.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.assignedClerk')}
+                  </label>
+                  <select
+                    value={formData.assigned_clerk || ''}
+                    onChange={(e) => setFormData({ ...formData, assigned_clerk: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectClerk')}</option>
+                    {clerks.map(clerk => (
+                      <option key={clerk.user_id} value={clerk.user_id}>{clerk.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
+            </div>
 
-              <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  onClick={handleSaveEmployee}
-                  disabled={isLoading}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50"
-                >
-                  {isLoading ? t('common.saving') : t('common.save')}
-                </button>
-              </div>
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleSaveEmployee}
+                disabled={isLoading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 disabled:opacity-50"
+              >
+                {isLoading ? t('common.saving') : t('common.save')}
+              </button>
             </div>
           </div>
+        </div>
       )}
     </div>
   );
