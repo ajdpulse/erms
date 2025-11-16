@@ -620,7 +620,6 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     setShowEditModal(true);
   };
 const handleSaveEmployee = async () => {
-  debugger;
 
   if (!formData.emp_id || !formData.employee_name || !formData.designation_id) {
     alert(t('erms.fillAllFields'));
