@@ -339,30 +339,71 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter(record =>
-        record.emp_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.employee_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.department?.toLowerCase().includes(searchTerm.toLowerCase())
+        String(record.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(record.employee_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(record.department || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
+
 
     setFilteredRecords(filtered);
   };
 
-  const getProgressStatus = (record: GroupInsuranceRecord) => {
-    const progressFields = [
-      record.year_1990,
-      record.year_2003,
-      record.year_2010,
-      record.year_2020
-    ];
+  const getStatusIcon = (status: string | null) => {
+    if (!status || status.trim() === '') {
+      return <span className="text-gray-400 text-lg">○</span>;
+    }
 
-    const filledFields = progressFields.filter(field => field && field.trim() !== '').length;
-    const totalFields = progressFields.length;
+    const v = status.trim();
 
-    if (filledFields === 0) return 'pending';
-    if (filledFields === totalFields) return 'completed';
-    return 'processing';
+    if (v === 'आहे' || v === 'आहे (Available)' || v === 'होय (Yes)' || v === 'पूर्ण (Complete)') {
+      return <span className="text-green-600 text-lg">✓</span>;
+    }
+
+    if (v === 'नाही' || v === 'नाही (Not Available)') {
+      return <span className="text-red-600 text-lg">✗</span>;
+    }
+
+    if (v === 'लागू नाही' || v === 'लागू नाही (Not Applicable)') {
+      return <span className="text-blue-600 text-lg">△</span>;
+    }
+
+    if (v === 'सुट आहे' || v === 'सुट आहे (Exempted)') {
+      return <span className="text-purple-600 text-lg">◊</span>;
+    }
+
+    if (v === 'इतर' || v === 'इतर (Other)') {
+      return <span className="text-orange-600 text-lg">◈</span>;
+    }
+
+    return <span className="text-orange-500 text-lg">◐</span>;
   };
+
+const getProgressStatus = (record: GroupInsuranceRecord) => {
+  const progressFields = [
+    record.year_1990,
+    record.year_2003,
+    record.year_2010,
+    record.year_2020
+  ];
+
+  const selectedFields = progressFields.filter(field => field && field.trim() !== '');
+  if (selectedFields.length === 0) return 'pending';
+
+  const hasNotAvailable = selectedFields.some(field => {
+    const v = field!.trim();
+    return v === 'नाही' || v === 'नाही (Not Available)';
+  });
+  if (hasNotAvailable) return 'processing';
+
+  const allSelectedAreNotNA = selectedFields.every(field => {
+    const v = field!.trim();
+    return v !== 'नाही' && v !== 'नाही (Not Available)';
+  });
+  if (allSelectedAreNotNA) return 'completed';
+
+  return 'processing';
+};
 
   const getStatusCounts = () => {
     const total = filteredRecords.length;
@@ -469,8 +510,8 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
         key="first"
         onClick={() => setCurrentPage(1)}
         className={`px-3 py-1 text-sm border rounded-md ${currentPage === 1
-            ? 'bg-blue-500 text-white border-blue-500'
-            : 'border-gray-300 hover:bg-gray-50'
+          ? 'bg-blue-500 text-white border-blue-500'
+          : 'border-gray-300 hover:bg-gray-50'
           }`}
       >
         1
@@ -492,8 +533,8 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
           key={i}
           onClick={() => setCurrentPage(i)}
           className={`px-3 py-1 text-sm border rounded-md ${currentPage === i
-              ? 'bg-blue-500 text-white border-blue-500'
-              : 'border-gray-300 hover:bg-gray-50'
+            ? 'bg-blue-500 text-white border-blue-500'
+            : 'border-gray-300 hover:bg-gray-50'
             }`}
         >
           {i}
@@ -513,8 +554,8 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
           key="last"
           onClick={() => setCurrentPage(totalPages)}
           className={`px-3 py-1 text-sm border rounded-md ${currentPage === totalPages
-              ? 'bg-blue-500 text-white border-blue-500'
-              : 'border-gray-300 hover:bg-gray-50'
+            ? 'bg-blue-500 text-white border-blue-500'
+            : 'border-gray-300 hover:bg-gray-50'
             }`}
         >
           {totalPages}
@@ -706,8 +747,8 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
               <button
                 onClick={() => setActiveTab('inProgress')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'inProgress'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 {t('retirementTracker.inProgress')} ({statusCounts.processing})
@@ -715,8 +756,8 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
               <button
                 onClick={() => setActiveTab('pending')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'pending'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 {t('retirementTracker.pending')} ({statusCounts.pending})
@@ -724,8 +765,8 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
               <button
                 onClick={() => setActiveTab('completed')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'completed'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 {t('retirementTracker.completed')} ({statusCounts.completed})
@@ -772,18 +813,10 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.retirement_date ? new Date(record.retirement_date).toLocaleDateString() : '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.age || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.assigned_clerk || t('erms.unassigned')}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-green-600 text-lg">{record.year_1990 ? '✓' : '○'}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-green-600 text-lg">{record.year_2003 ? '✓' : '○'}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-green-600 text-lg">{record.year_2010 ? '✓' : '○'}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-green-600 text-lg">{record.year_2020 ? '✓' : '○'}</span>
-                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(record.year_1990)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(record.year_2003)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(record.year_2010)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(record.year_2020)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center space-x-2">
                           <button className="text-blue-600 hover:text-blue-900 p-1 rounded">

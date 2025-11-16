@@ -606,7 +606,6 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                 <div>
                   <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.processing')}</p>
                   <p className="text-2xl font-extrabold text-orange-800">{statusCounts.processing}</p>
-                  <p className="text-xs text-orange-600 font-medium">{t('retirementTracker.withSubmissionData')}</p>
                 </div>
                 <div className="bg-gradient-to-tr from-orange-500 to-yellow-500 p-3 rounded-2xl shadow-md">
                   <Calendar className="h-6 w-6 text-white" />
@@ -619,7 +618,6 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                 <div>
                   <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.completed')}</p>
                   <p className="text-2xl font-extrabold text-green-900">{statusCounts.completed}</p>
-                  <p className="text-xs text-green-600 font-medium">{t('retirementTracker.pensionApproved')}</p>
                 </div>
                 <div className="bg-gradient-to-tr from-green-500 to-teal-500 p-3 rounded-2xl shadow-md">
                   <CheckCircle className="h-6 w-6 text-white" />
@@ -632,7 +630,6 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                 <div>
                   <p className="text-xs text-purple-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.pending')}</p>
                   <p className="text-2xl font-extrabold text-purple-600">{statusCounts.pending}</p>
-                  <p className="text-xs text-purple-600 font-medium">{t('retirementTracker.awaitingApproval')}</p>
                 </div>
                 <div className="bg-gradient-to-tr from-purple-500 to-indigo-600 p-3 rounded-2xl shadow-md">
                   <FileText className="h-6 w-6 text-white" />
@@ -1545,16 +1542,18 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
       employee.retirement_order
     ];
 
-    const filledFields = progressFields.filter(field =>
-      field && field.trim() !== '' && 
-      (field === 'आहे (Available)' || 
-       field === 'सुट आहे (Exempted)' || 
-       field === 'लागू नाही (Not Applicable)')
-    ).length;
-    const totalFields = progressFields.length;
+    const selectedFields = progressFields.filter(field => field && field.trim() !== '');
+    if (selectedFields.length === 0) return 'pending';
 
-    if (filledFields === 0) return 'pending';
-    if (filledFields === totalFields) return 'completed';
+    const hasNotAvailableWithEmptyDoc =
+      employee.date_of_birth_verification === 'नाही (Not Available)' &&
+      (!employee.birth_certificate_doc_submitted || employee.birth_certificate_doc_submitted.trim() === '');
+
+    if (hasNotAvailableWithEmptyDoc) return 'processing';
+
+    const allSelectedHaveOtherValue = selectedFields.every(field => field !== 'नाही (Not Available)');
+    if (allSelectedHaveOtherValue) return 'completed';
+
     return 'processing';
   };
 

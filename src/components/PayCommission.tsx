@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
+import {
   Users,
   Calendar,
   CheckCircle,
@@ -65,7 +65,7 @@ interface ClerkData {
 export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
-  
+
   // Comprehensive state persistence system
   const STORAGE_KEYS = {
     FILTERS: 'pay-commission-filters',
@@ -80,7 +80,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
       const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
       const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
       const savedPagination = localStorage.getItem(STORAGE_KEYS.PAGINATION);
-      
+
       if (savedFilters) {
         const parsed = JSON.parse(savedFilters);
         return {
@@ -116,7 +116,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
   const [activeTab, setActiveTab] = useState(initialState.activeTab as 'inProgress' | 'pending' | 'completed');
   const [currentPage, setCurrentPage] = useState(initialState.currentPage);
   const recordsPerPage = 20;
-  
+
   // Data states
   const [payCommissionRecords, setPayCommissionRecords] = useState<PayCommissionRecord[]>([]);
   const [clerks, setClerks] = useState<ClerkData[]>([]);
@@ -146,7 +146,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
 
   useEffect(() => {
     fetchAllData();
-    
+
     setTimeout(() => {
       setPersistenceEnabled(true);
       setIsInitialized(true);
@@ -254,9 +254,9 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
           seventh_pay_comission_date
         `)
         .order('employee_name');
-      
+
       if (error) throw error;
-      
+
       setPayCommissionRecords(data || []);
     } catch (error) {
       console.error('Error fetching pay commission records:', error);
@@ -274,15 +274,15 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
         `)
         .eq('roles.name', 'clerk')
         .not('name', 'is', null);
-      
+
       if (error) throw error;
-      
+
       const clerksData = data?.map(clerk => ({
         user_id: clerk.user_id,
         name: clerk.name,
         role_name: clerk.roles?.name || 'clerk'
       })) || [];
-      
+
       setClerks(clerksData);
     } catch (error) {
       console.error('Error fetching clerks:', error);
@@ -327,30 +327,43 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter(record =>
-        record.emp_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.employee_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.department?.toLowerCase().includes(searchTerm.toLowerCase())
+        String(record.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(record.employee_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(record.department || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     setFilteredRecords(filtered);
   };
 
-  const getProgressStatus = (record: PayCommissionRecord) => {
-    const progressFields = [
-      record.fourth_pay_comission,
-      record.fifth_pay_comission,
-      record.sixth_pay_comission,
-      record.seventh_pay_comission
-    ];
+ const getProgressStatus = (record: PayCommissionRecord) => {
+  const progressFields = [
+    record.fourth_pay_comission,
+    record.fifth_pay_comission,
+    record.sixth_pay_comission,
+    record.seventh_pay_comission,
+    record.pay_progress_scheme,
+    record.department_progress_scheme
+  ];
 
-    const filledFields = progressFields.filter(field => field && field.trim() !== '').length;
-    const totalFields = progressFields.length;
+  // Check if any field has value "नाही (Not Available)" and is empty
+  const hasNotAvailableAndEmpty = progressFields.some(
+    (field) => field?.includes("नाही (Not Available)") && (field === "" || field === null)
+  );
 
-    if (filledFields === 0) return 'pending';
-    if (filledFields === totalFields) return 'completed';
+  // If any field is "नाही (Not Available)" and empty, return "processing"
+  if (hasNotAvailableAndEmpty) {
     return 'processing';
-  };
+  }
+
+  // Otherwise, count filled fields
+  const filledFields = progressFields.filter(field => field && field.trim() !== '').length;
+  const totalFields = progressFields.length;
+
+  if (filledFields === 0) return 'pending';
+  if (filledFields === totalFields) return 'completed';
+  return 'processing';
+};
 
   const getStatusCounts = () => {
     const total = filteredRecords.length;
@@ -389,55 +402,55 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     setShowEditModal(true);
   };
 
- const handleUpdateRecord = async () => {
-  if (!editingRecord) return;
+  const handleUpdateRecord = async () => {
+    if (!editingRecord) return;
 
-  setIsLoading(true);
-  try {
-    const newStatus = getProgressStatus(editingRecord);
-    
-    const { error: payCommError } = await ermsClient
-      .from('pay_commission')
-      .update({
-        fourth_pay_comission: editingRecord.fourth_pay_comission,
-        fifth_pay_comission: editingRecord.fifth_pay_comission,
-        sixth_pay_comission: editingRecord.sixth_pay_comission,
-        seventh_pay_comission: editingRecord.seventh_pay_comission,
-        comments: editingRecord.comments,
-        fourth_pay_comission_comment: editingRecord.fourth_pay_comission_comment,
-        fifth_pay_comission_comment: editingRecord.fifth_pay_comission_comment,
-        sixth_pay_comission_comment: editingRecord.sixth_pay_comission_comment,
-        seventh_pay_comission_comment: editingRecord.seventh_pay_comission_comment,
-        pay_progress_scheme: editingRecord.pay_progress_scheme,
-        department_progress_scheme: editingRecord.department_progress_scheme,
-        fourth_pay_comission_date: editingRecord.fourth_pay_comission_date,
-        fifth_pay_comission_date: editingRecord.fifth_pay_comission_date,
-        sixth_pay_comission_date: editingRecord.sixth_pay_comission_date,
-        seventh_pay_comission_date: editingRecord.seventh_pay_comission_date,
-        last_updated: new Date().toISOString()
-      })
-      .eq('id', editingRecord.id);
+    setIsLoading(true);
+    try {
+      const newStatus = getProgressStatus(editingRecord);
 
-    const { error: employeeError } = await ermsClient
-      .from('employee_retirement')
-      .update({
-        pay_commission_status: newStatus,
-      })
-      .eq('emp_id', editingRecord.emp_id);
+      const { error: payCommError } = await ermsClient
+        .from('pay_commission')
+        .update({
+          fourth_pay_comission: editingRecord.fourth_pay_comission,
+          fifth_pay_comission: editingRecord.fifth_pay_comission,
+          sixth_pay_comission: editingRecord.sixth_pay_comission,
+          seventh_pay_comission: editingRecord.seventh_pay_comission,
+          comments: editingRecord.comments,
+          fourth_pay_comission_comment: editingRecord.fourth_pay_comission_comment,
+          fifth_pay_comission_comment: editingRecord.fifth_pay_comission_comment,
+          sixth_pay_comission_comment: editingRecord.sixth_pay_comission_comment,
+          seventh_pay_comission_comment: editingRecord.seventh_pay_comission_comment,
+          pay_progress_scheme: editingRecord.pay_progress_scheme,
+          department_progress_scheme: editingRecord.department_progress_scheme,
+          fourth_pay_comission_date: editingRecord.fourth_pay_comission_date,
+          fifth_pay_comission_date: editingRecord.fifth_pay_comission_date,
+          sixth_pay_comission_date: editingRecord.sixth_pay_comission_date,
+          seventh_pay_comission_date: editingRecord.seventh_pay_comission_date,
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', editingRecord.id);
 
-    // If any update errors, throw
-    if (payCommError || employeeError) throw payCommError || employeeError;
-    
-    await fetchPayCommissionRecords();
-    setShowEditModal(false);
-    setEditingRecord(null);
-  } catch (error) {
-    console.error('Error updating record:', error);
-    alert(t('common.error') + ': ' + (error.message || error));
-  } finally {
-    setIsLoading(false);
-  }
-};
+      const { error: employeeError } = await ermsClient
+        .from('employee_retirement')
+        .update({
+          pay_commission_status: newStatus,
+        })
+        .eq('emp_id', editingRecord.emp_id);
+
+      // If any update errors, throw
+      if (payCommError || employeeError) throw payCommError || employeeError;
+
+      await fetchPayCommissionRecords();
+      setShowEditModal(false);
+      setEditingRecord(null);
+    } catch (error) {
+      console.error('Error updating record:', error);
+      alert(t('common.error') + ': ' + (error.message || error));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
 
   const clearFilters = () => {
@@ -447,7 +460,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     setSelectedStatus('');
   };
 
-    const getStatusIcon = (status: string | null) => {
+  const getStatusIcon = (status: string | null) => {
     if (!status || status.trim() === '') {
       return <span className="text-gray-400 text-lg">○</span>;
     }
@@ -481,8 +494,8 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
 
   return (
     <div className="space-y-6">
-     {/* KPI Cards */}
-     {/* Start of New changes to deploy */}
+      {/* KPI Cards */}
+      {/* Start of New changes to deploy */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
           <div className="flex items-center justify-between">
@@ -501,7 +514,6 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
             <div>
               <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.processing')}</p>
               <p className="text-2xl font-extrabold text-orange-800">{statusCounts.processing}</p>
-              <p className="text-xs text-orange-600 font-medium">{t('retirementTracker.withSubmissionData')}</p>
             </div>
             <div className="bg-gradient-to-tr from-orange-500 to-yellow-500 p-3 rounded-2xl shadow-md">
               <Calendar className="h-6 w-6 text-white" />
@@ -514,7 +526,6 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
             <div>
               <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.completed')}</p>
               <p className="text-2xl font-extrabold text-green-900">{statusCounts.completed}</p>
-              <p className="text-xs text-green-600 font-medium">{t('retirementTracker.pensionApproved')}</p>
             </div>
             <div className="bg-gradient-to-tr from-green-500 to-teal-500 p-3 rounded-2xl shadow-md">
               <CheckCircle className="h-6 w-6 text-white" />
@@ -527,7 +538,6 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
             <div>
               <p className="text-xs text-purple-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.pending')}</p>
               <p className="text-2xl font-extrabold text-purple-600">{statusCounts.pending}</p>
-              <p className="text-xs text-purple-600 font-medium">{t('retirementTracker.awaitingApproval')}</p>
             </div>
             <div className="bg-gradient-to-tr from-purple-500 to-indigo-600 p-3 rounded-2xl shadow-md">
               <FileText className="h-6 w-6 text-white" />
@@ -658,31 +668,28 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
             <nav className="flex space-x-8">
               <button
                 onClick={() => setActiveTab('inProgress')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'inProgress'
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'inProgress'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 {t('retirementTracker.inProgress')} ({statusCounts.processing})
               </button>
               <button
                 onClick={() => setActiveTab('pending')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'pending'
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'pending'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 {t('retirementTracker.pending')} ({statusCounts.pending})
               </button>
               <button
                 onClick={() => setActiveTab('completed')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'completed'
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'completed'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 {t('retirementTracker.completed')} ({statusCounts.completed})
               </button>
@@ -786,24 +793,23 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                
+
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   const pageNum = i + 1;
                   return (
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-1 text-sm border rounded-md ${
-                        currentPage === pageNum
+                      className={`px-3 py-1 text-sm border rounded-md ${currentPage === pageNum
                           ? 'bg-blue-500 text-white border-blue-500'
                           : 'border-gray-300 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       {pageNum}
                     </button>
                   );
                 })}
-                
+
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
@@ -830,7 +836,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6">
               {/* Basic Employee Info (Read-only) */}
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -883,7 +889,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       <option value="सुट आहे">सुट आहे (Exempted)</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">4th Pay Commission Date</label>
                     <input
@@ -893,7 +899,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">5th Pay Commission</label>
                     <select
@@ -908,7 +914,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       <option value="सुट आहे">सुट आहे (Exempted)</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">5th Pay Commission Date</label>
                     <input
@@ -918,7 +924,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">6th Pay Commission</label>
                     <select
@@ -933,7 +939,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       <option value="सुट आहे">सुट आहे (Exempted)</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">6th Pay Commission Date</label>
                     <input
@@ -943,7 +949,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">7th Pay Commission</label>
                     <select
@@ -958,7 +964,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       <option value="सुट आहे">सुट आहे (Exempted)</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">7th Pay Commission Date</label>
                     <input
@@ -969,7 +975,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                     />
                   </div>
                 </div>
-                
+
                 {/* Pay Commission Comments */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -982,7 +988,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       placeholder="Enter comment for 4th pay commission"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">5th Pay Commission Comment</label>
                     <textarea
@@ -993,7 +999,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       placeholder="Enter comment for 5th pay commission"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">6th Pay Commission Comment</label>
                     <textarea
@@ -1004,7 +1010,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       placeholder="Enter comment for 6th pay commission"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">7th Pay Commission Comment</label>
                     <textarea
@@ -1019,37 +1025,37 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.payProgressScheme')}</label>
                     <select
-                        value={editingRecord.pay_progress_scheme || ''}
-                        onChange={(e) => setEditingRecord({ ...editingRecord, pay_progress_scheme: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      >
-                        <option value="">{t('retirementTracker.selectStatus')}</option>
-                        <option value="आहे (Available)">आहे (Available)</option>
-                        <option value="नाही (Not Available)">नाही (Not Available)</option>
-                        <option value="लागू नाही (Not Applicable)">लागू नाही (Not Applicable)</option>
-                        <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
-                        <option value="इतर (Other)">इतर (Other)</option>
-                      </select>
+                      value={editingRecord.pay_progress_scheme || ''}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, pay_progress_scheme: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
+                    >
+                      <option value="">{t('retirementTracker.selectStatus')}</option>
+                      <option value="आहे (Available)">आहे (Available)</option>
+                      <option value="नाही (Not Available)">नाही (Not Available)</option>
+                      <option value="लागू नाही (Not Applicable)">लागू नाही (Not Applicable)</option>
+                      <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
+                      <option value="इतर (Other)">इतर (Other)</option>
+                    </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('retirementTracker.departmentProgressScheme')}</label>
-                      <select
-                        value={editingRecord.department_progress_scheme || ''}
-                        onChange={(e) => setEditingRecord({ ...editingRecord, department_progress_scheme: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
-                      >
-                        <option value="">{t('retirementTracker.selectStatus')}</option>
-                        <option value="आहे (Available)">आहे (Available)</option>
-                        <option value="नाही (Not Available)">नाही (Not Available)</option>
-                        <option value="लागू नाही (Not Applicable)">लागू नाही (Not Applicable)</option>
-                        <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
-                        <option value="इतर (Other)">इतर (Other)</option>
-                      </select>
-                    </div>
+                    <select
+                      value={editingRecord.department_progress_scheme || ''}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, department_progress_scheme: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
+                    >
+                      <option value="">{t('retirementTracker.selectStatus')}</option>
+                      <option value="आहे (Available)">आहे (Available)</option>
+                      <option value="नाही (Not Available)">नाही (Not Available)</option>
+                      <option value="लागू नाही (Not Applicable)">लागू नाही (Not Applicable)</option>
+                      <option value="सुट आहे (Exempted)">सुट आहे (Exempted)</option>
+                      <option value="इतर (Other)">इतर (Other)</option>
+                    </select>
+                  </div>
 
                 </div>
-                
+
                 {/* General Comments */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">General Comments</label>
@@ -1063,7 +1069,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setShowEditModal(false)}

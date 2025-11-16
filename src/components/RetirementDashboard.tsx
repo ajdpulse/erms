@@ -32,6 +32,11 @@ interface Department {
   department: string;
 }
 
+interface Designation {
+  designation_id: string;
+  designation: string;
+}
+
 
 interface RetirementEmployee {
   id: string;
@@ -76,7 +81,7 @@ interface EditingEmployee extends RetirementEmployee {
 export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, onBack }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
-
+  const [designations, setDesignations] = useState<Designation[]>([]);
   // Comprehensive state persistence system
   const STORAGE_KEYS = {
     ACTIVE_TAB: 'retirement-dashboard-active-tab',
@@ -201,6 +206,20 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
     }
   };
 
+  const fetchDesignations = async () => {
+    try {
+      const { data, error } = await ermsClient
+        .from('designations')
+        .select('designation_id, designation')
+        .order('designation');
+      if (error) throw error;
+      setDesignations(data || []);
+    } catch (error) {
+      console.error('Error fetching designations:', error);
+      setDesignations([]);
+    }
+  };
+
   const getProgressStatus = (employee: RetirementEmployee) => {
     // Only include actual data fields, not status fields
     const progressFields = [
@@ -214,6 +233,9 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
       employee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
       employee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
       employee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
+      employee.retirement_progress_status,
+      employee.pay_commission_status,
+      employee.group_insurance_status
     ];
 
     const filledFields = progressFields.filter(field => field && field.trim() !== '').length;
@@ -429,6 +451,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
     try {
       await Promise.all([
         fetchDepartments(),
+        fetchDesignations(),
         fetchRetirementEmployees(),
         fetchClerks()
       ]);
@@ -1429,14 +1452,18 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.designationAtRetirement')}</label>
-                    <input
-                      type="text"
+                    <select
                       value={editingEmployee.designation_time_of_retirement || ''}
-                      onChange={(e) => setEditingEmployee({ ...editingEmployee, designation_time_of_retirement: e.target.value })}
+                      onChange={e => setEditingEmployee({ ...editingEmployee, designation_time_of_retirement: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+                    >
+                      <option value="">{t('erms.selectDesignation')}</option>
+                      {designations.map(designation => (
+                        <option key={designation.designation_id} value={designation.designation}>{designation.designation}</option>
+                      ))}
+                    </select>
 
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.assignedClerk')}</label>
                     <input
@@ -1459,22 +1486,30 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.departmentSubmitted')}</label>
-                    <input
-                      type="text"
+                    <select
                       value={editingEmployee.department_submitted || ''}
-                      onChange={(e) => setEditingEmployee({ ...editingEmployee, department_submitted: e.target.value })}
+                      onChange={e => setEditingEmployee({ ...editingEmployee, department_submitted: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                    >
+                      <option value="">{t('erms.selectDepartment')}</option>
+                      {departments.map(dept => (
+                        <option key={dept.dept_id} value={dept.department}>{dept.department}</option>
+                      ))}
+                    </select>
+
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.typeOfPension')}</label>
-                    <input
-                      type="text"
+                    <select
                       value={editingEmployee.type_of_pension || ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, type_of_pension: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                    >
+                      <option value="">{t('erms.selectTypeOfPension')}</option>
+                      <option value="तात्पुरती">तात्पुरती</option>
+                      <option value="नियमित">नियमित</option>
+                    </select>
                   </div>
 
                   <div>

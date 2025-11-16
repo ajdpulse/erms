@@ -1029,7 +1029,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
             onClick={() => {
               setFilterType('total');
-              setTimeout(filterEmployees, 0);
+              setTimeout(() => {}, 0);
             }}
           >
             <div className="flex items-center justify-between">
@@ -1047,7 +1047,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
             onClick={() => {
               setFilterType('upcomingRetirements');
-              setTimeout(filterEmployees, 0);
+              setTimeout(() => {}, 0);
             }}
           >
             <div className="flex items-center justify-between">
@@ -1066,7 +1066,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
             onClick={() => {
               setFilterType('assigned');
-              setTimeout(filterEmployees, 0);
+              setTimeout(() => {}, 0);
             }}
           >
             <div className="flex items-center justify-between">
@@ -1084,7 +1084,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             className="bg-white rounded-xl shadow-md border border-red-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
             onClick={() => {
               setFilterType('unassigned');
-              setTimeout(filterEmployees, 0);
+              setTimeout(() => {}, 0);
             }}
           >
             <div className="flex items-center justify-between">
@@ -1520,12 +1520,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('erms.office')}
+                    {t('erms.office')} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.office_id || ''}
                     onChange={(e) => setFormData({ ...formData, office_id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
                   >
                     <option value="">{t('erms.selectOffice')}</option>
                     {offices.map(office => (

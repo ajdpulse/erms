@@ -181,6 +181,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
   const [currentPage, setCurrentPage] = useState(initialPagination.currentPage);
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [recordsPerPage] = useState(initialPagination.recordsPerPage);
+  const [filterType, setFilterType] = useState<string>('');
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(initialModalState.showAddModal);
@@ -210,6 +211,46 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     } catch (error) {
       console.warn('Failed to save filters to localStorage:', error);
     }
+  };
+
+ // Function to calculate retirement date based on date of birth and Cadre
+  const calculateRetirementDate = (dateOfBirth: string, Cadre: string) => {
+
+    if (!Cadre) return null;
+
+    const birthDate = new Date(dateOfBirth);
+
+    // Determine retirement age based on cadre
+    let retirementAge = 60; // default
+    if (Cadre.toLowerCase() === 'c') {
+      retirementAge = 58;
+    } else if (Cadre.toLowerCase() === 'd') {
+      retirementAge = 60;
+    }
+
+    // Add retirement age to birth year
+    const retirementDate = new Date(birthDate);
+    retirementDate.setFullYear(birthDate.getFullYear() + retirementAge);
+
+    // Set to last day of that month
+    // Check if birth date is the 1st
+    if (birthDate.getDate() === 1) {
+      // Set to last day of previous month
+      retirementDate.setMonth(retirementDate.getMonth(), 0);
+    } else {
+      // Set to last day of retirement month
+      retirementDate.setMonth(retirementDate.getMonth() + 1, 0);
+    }
+
+
+    // retirementDate.setMonth(retirementDate.getMonth() + 1, 0);
+
+    // Format date to YYYY-MM-DD
+    const year = retirementDate.getFullYear();
+    const month = (retirementDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = retirementDate.getDate().toString().padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
   };
 
   // Save pagination to localStorage
@@ -337,8 +378,8 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
 
   useEffect(() => {
     filterEmployees();
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [employees, searchTerm, selectedDepartment, selectedClerk, selectedReason]);
+    setCurrentPage(1);
+  }, [employees, searchTerm, selectedDepartment, selectedClerk, selectedReason, filterType]);
 
   const fetchAllData = async () => {
     setIsLoading(true);
@@ -520,6 +561,20 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
       filtered = filtered.filter(emp => emp.retirement_reason === selectedReason);
     }
 
+    if (filterType === 'upcomingRetirements') {
+      const sixMonthsFromNow = new Date();
+      sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+      filtered = filtered.filter(emp => {
+        if (!emp.retirement_date) return false;
+        const retirementDate = new Date(emp.retirement_date);
+        return retirementDate <= sixMonthsFromNow;
+      });
+    } else if (filterType === 'assigned') {
+      filtered = filtered.filter(emp => emp.assigned_clerk);
+    } else if (filterType === 'unassigned') {
+      filtered = filtered.filter(emp => !emp.assigned_clerk);
+    }
+
     setFilteredEmployees(filtered);
   };
 
@@ -564,74 +619,96 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     setEditingEmployee(employee);
     setShowEditModal(true);
   };
+const handleSaveEmployee = async () => {
+  debugger;
 
-  const handleSaveEmployee = async () => {
-    if (!formData.emp_id || !formData.employee_name || !formData.designation_id) {
-      alert(t('erms.fillAllFields'));
-      return;
+  if (!formData.emp_id || !formData.employee_name || !formData.designation_id) {
+    alert(t('erms.fillAllFields'));
+    return;
+  }
+
+  if (!educationDeptId) {
+    alert('Education department ID not found');
+    return;
+  }
+
+  // Define calculateAge only once
+  const calculateAge = (dateOfBirth: string) => {
+    if (!dateOfBirth) return null;
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
     }
-
-    if (!educationDeptId) {
-      alert('Education department ID not found');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      //console.log("formData", formData);
-      const employeeData = {
-        emp_id: String(formData.emp_id || '').trim() || null,
-        employee_name: String(formData.employee_name || '').trim(),
-        date_of_birth: formData.date_of_birth,
-        Cadre: 'C', // Always set to C
-        //retirement_date: calculatedRetirementDate,
-        //retirement_date: calculateRetirementDate(formData.date_of_birth, formData.Cadre),
-        designation_id: formData.designation_id,
-        //reason: String(formData.reason || '').trim() || null,
-        assigned_clerk: formData.assigned_clerk || null,
-        tal_id: formData.tal_id,
-        dept_id: educationDeptId,
-        office_id: formData.office,
-        date_of_joining: formData.date_of_joining || null,
-        Shalarth_Id: formData.Shalarth_Id,
-        cast_category: formData.cast_category,
-        appointment_caste_category: formData.appointment_caste_category,
-        teacher_type: formData.teacher_type,
-        teacher_is_active:formData.teacher_is_active ,
-        gender:formData.gender ,
-        updated_at: new Date().toISOString()
-      };
-
-
-      if (editingEmployee) {
-        const { error } = await ermsClient
-          .from('employee')
-          .update(employeeData)
-          .eq('emp_id', editingEmployee.emp_id);
-
-        if (error) throw error;
-      } else {
-        const { error } = await ermsClient
-          .from('employee')
-          .insert({
-            ...employeeData,
-            created_at: new Date().toISOString()
-          });
-
-        if (error) throw error;
-      }
-
-      await fetchEmployees();
-      setShowAddModal(false);
-      setShowEditModal(false);
-      setFormData({ Cadre: 'C' });
-    } catch (error) {
-      console.error('Error saving employee:', error);
-      alert(t('common.error') + ': ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
+    return age;
   };
+
+  setIsLoading(true);
+  try {
+    // Calculate age from date of birth
+    const calculatedAge = calculateAge(formData.date_of_birth);
+
+    // Calculate retirement date based on cadre
+    const calculatedRetirementDate = formData.Cadre
+      ? calculateRetirementDate(formData.date_of_birth, formData.Cadre)
+      : null;
+
+    // Prepare employee data
+    const employeeData = {
+      emp_id: String(formData.emp_id || '').trim() || null,
+      employee_name: String(formData.employee_name || '').trim(),
+      employee_name_en: formData.employee_name_en ? String(formData.employee_name_en).trim() : null,
+      date_of_birth: formData.date_of_birth,
+      Cadre: 'C', // Always set to C
+      retirement_date: calculatedRetirementDate,
+      age: calculatedAge,
+      designation_id: formData.designation_id,
+      assigned_clerk: formData.assigned_clerk || null,
+      tal_id: formData.tal_id,
+      dept_id: educationDeptId,
+      office_id: formData.office_id,
+      date_of_joining: formData.date_of_joining || null,
+      Shalarth_Id: formData.Shalarth_Id,
+      cast_category: formData.cast_category,
+      appointment_caste_category: formData.appointment_caste_category,
+      teacher_type: formData.teacher_type,
+      teacher_is_active: formData.teacher_is_active,
+      gender: formData.gender,
+      updated_at: new Date().toISOString()
+    };
+
+    if (editingEmployee) {
+      const { error } = await ermsClient
+        .from('employee')
+        .update(employeeData)
+        .eq('emp_id', editingEmployee.emp_id);
+
+      if (error) throw error;
+    } else {
+      const { error } = await ermsClient
+        .from('employee')
+        .insert({
+          ...employeeData,
+          created_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+    }
+
+    await fetchEmployees();
+    setShowAddModal(false);
+    setShowEditModal(false);
+    setFormData({ Cadre: 'C' });
+  } catch (error) {
+    console.error('Error saving employee:', error);
+    alert(t('common.error') + ': ' + error.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const handleDeleteEmployee = async (employee: EducationEmployee) => {
     if (!confirm(t('common.deleteConfirm'))) return;
@@ -708,7 +785,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
       <div className="p-6 bg-indigo-50 rounded-b-xl shadow-inner">
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5" onClick={() => { setFilterType('total'); setTimeout(() => { }, 0); }}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-indigo-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.totalEmployees')}</p>
@@ -720,7 +797,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5" onClick={() => { setFilterType('upcomingRetirements'); setTimeout(() => { }, 0); }}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.upcomingRetirements')}</p>
@@ -733,7 +810,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5" onClick={() => { setFilterType('assigned'); setTimeout(() => { }, 0); }}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.assigned')}</p>
@@ -745,7 +822,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-red-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div className="bg-white rounded-xl shadow-md border border-red-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5" onClick={() => { setFilterType('unassigned'); setTimeout(() => { }, 0); }}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-red-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.unassigned')}</p>
@@ -904,7 +981,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
             </tbody>
           </table>
           {/* End of New changes to deploy */}
-    
+
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="px-6 py-4 border-t border-gray-200">
@@ -939,10 +1016,9 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-1 text-sm border rounded-md ${
-                          currentPage === pageNum
-                            ? 'bg-blue-500 text-white border-blue-500'
-                            : 'border-gray-300 hover:bg-gray-50'
+                        className={`px-3 py-1 text-sm border rounded-md ${currentPage === pageNum
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'border-gray-300 hover:bg-gray-50'
                           }`}
                       >
                         {pageNum}
@@ -1122,21 +1198,18 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.designation')}</label>
                   <select
-                    value={formData.designation || ''}
-                    onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                    value={formData.designation_id || ''}
+                    onChange={(e) => setFormData({ ...formData, designation_id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
                   >
                     <option value="">{t('erms.selectDesignation')}</option>
                     {designations.map(designation => (
-                      <option key={designations.designation_id} value={designations.designation}>
-                        {designations.designation}
-                      </option>
+                      <option key={designation.designation_id} value={designation.designation_id}>{designation.designation}</option>
                     ))}
                   </select>
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.age')}</label>
                   <input
                     type="number"
@@ -1145,7 +1218,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder={t('erms.enterAge')}
                   />
-                </div>
+                </div> */}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.dateOfBirth')}</label>
@@ -1177,7 +1250,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.office')}</label>
                   <select
                     value={formData.office_id || ''}
-                    onChange={(e) => setFormData({ ...formData, office: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, office_id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">{t('erms.selectOffice')}</option>
@@ -1187,6 +1260,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                       </option>
                     ))}
                   </select>
+
                 </div>
 
                 <div>
@@ -1385,7 +1459,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                   </select>
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.age')}</label>
                   <input
                     type="number"
@@ -1394,7 +1468,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder={t('erms.enterAge')}
                   />
-                </div>
+                </div> */}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.dateOfBirth')}</label>
@@ -1425,8 +1499,8 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.office')}</label>
                   <select
-                    value={formData.office || ''}
-                    onChange={(e) => setFormData({ ...formData, office: e.target.value })}
+                    value={formData.office_id || ''}
+                    onChange={(e) => setFormData({ ...formData, office_id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">{t('erms.selectOffice')}</option>
@@ -1436,6 +1510,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                       </option>
                     ))}
                   </select>
+
                 </div>
 
                 <div>
