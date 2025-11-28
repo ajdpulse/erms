@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
+import {
   BarChart3,
   Table,
   PieChart,
@@ -65,7 +65,7 @@ interface ColumnInfo {
 export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
-  
+
   // Comprehensive state persistence system
   const STORAGE_KEYS = {
     ACTIVE_TAB: 'custom-reports-active-tab',
@@ -108,7 +108,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [reportData, setReportData] = useState<any[]>([]);
   const [reportColumns, setReportColumns] = useState<string[]>([]);
-  
+
   // Report Builder States
   const [selectedTables, setSelectedTables] = useState<string[]>(initialState.reportBuilder.selectedTables);
   const [selectedColumns, setSelectedColumns] = useState<string[]>(initialState.reportBuilder.selectedColumns);
@@ -117,8 +117,8 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
   const [joins, setJoins] = useState<any[]>(initialState.reportBuilder.joins);
   const [reportName, setReportName] = useState('');
   const [reportDescription, setReportDescription] = useState('');
-  const [availableColumns, setAvailableColumns] = useState<{[key: string]: ColumnInfo[]}>({});
-  
+  const [availableColumns, setAvailableColumns] = useState<{ [key: string]: ColumnInfo[] }>({});
+
   // Data States
   const [availableTables, setAvailableTables] = useState<TableInfo[]>([]);
   const [savedTemplates, setSavedTemplates] = useState<ReportTemplate[]>([]);
@@ -147,7 +147,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
   useEffect(() => {
     fetchAvailableTables();
     fetchSavedTemplates();
-    
+
     setTimeout(() => {
       setPersistenceEnabled(true);
       setIsInitialized(true);
@@ -174,7 +174,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
 
   useEffect(() => {
     // Update available columns when tables are selected
-    const columnsMap: {[key: string]: ColumnInfo[]} = {};
+    const columnsMap: { [key: string]: ColumnInfo[] } = {};
     selectedTables.forEach(tableName => {
       const table = availableTables.find(t => t.table_name === tableName);
       if (table) {
@@ -185,7 +185,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
   }, [selectedTables, availableTables]);
 
 
-// Start of New changes to deploy
+  // Start of New changes to deploy
   const tableDefinitions: TableInfo[] = [
     {
       table_name: 'employee',
@@ -324,12 +324,43 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setSavedTemplates(data || []);
     } catch (error) {
       console.error('Error fetching saved templates:', error);
     }
+  };
+
+  const downloadCSV = () => {
+    if (!reportData || reportData.length === 0) return;
+
+    const headers = reportColumns.join(",");
+    const rows = reportData
+      .map(row =>
+        reportColumns
+          .map(col => {
+            const val = row[col] ?? "";
+            if (typeof val === "string" && val.includes(",")) {
+              return `"${val}"`; // wrap values containing commas
+            }
+            return val;
+          })
+          .join(",")
+      )
+      .join("\n");
+
+    const csvContent = headers + "\n" + rows;
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "customReport.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
   };
 
   const executeReport = async () => {
@@ -342,22 +373,22 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
     try {
       let query;
       let data;
-      
+
       if (selectedTables.length === 1) {
         // Single table query
         const cleanColumns = selectedColumns.map(col => {
           const parts = col.split('.');
           return parts.length > 1 ? parts[1] : col;
         });
-        
+
         query = ermsClient.from(selectedTables[0]).select(cleanColumns.join(', '));
-        
+
         // Apply filters if any
         filters.forEach(filter => {
           if (filter.column && filter.operator && filter.value) {
-            const cleanFilterColumn = filter.column.includes('.') ? 
+            const cleanFilterColumn = filter.column.includes('.') ?
               filter.column.split('.')[1] : filter.column;
-            
+
             switch (filter.operator) {
               case 'eq':
                 query = query.eq(cleanFilterColumn, filter.value);
@@ -381,16 +412,16 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
         const result = await query;
         if (result.error) throw result.error;
         data = result.data;
-        
+
       } else if (selectedTables.length === 2) {
         // Two table join - implement common joins
         const [table1, table2] = selectedTables;
-        
+
         // Define common join relationships
         const joinRelationships = {
           'employee-pay_commission': {
             table1: 'employee',
-            table2: 'pay_commission', 
+            table2: 'pay_commission',
             joinKey: 'emp_id'
           },
           'employee-retirement_progress': {
@@ -424,42 +455,42 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
             joinKey: 'emp_id'
           }
         };
-        
+
         const joinKey = `${table1}-${table2}`;
         const reverseJoinKey = `${table2}-${table1}`;
         const relationship = joinRelationships[joinKey] || joinRelationships[reverseJoinKey];
-        
+
         if (relationship) {
           // Build select string with table prefixes
           const selectColumns = selectedColumns.map(col => {
             const [tableName, columnName] = col.split('.');
             return `${tableName}!inner(${columnName})`;
           });
-          
+
           // Use the first table as the base and join with the second
           const baseTable = relationship.table1;
           const joinTable = relationship.table2;
-          
+
           // Create a more specific select query for joins
           const baseColumns = selectedColumns
             .filter(col => col.startsWith(`${baseTable}.`))
             .map(col => col.split('.')[1]);
-          
+
           const joinColumns = selectedColumns
             .filter(col => col.startsWith(`${joinTable}.`))
             .map(col => col.split('.')[1]);
-          
+
           if (baseColumns.length > 0 && joinColumns.length > 0) {
             const selectString = [
               ...baseColumns,
               `${joinTable}!inner(${joinColumns.join(',')})`
             ].join(',');
-            
+
             query = ermsClient.from(baseTable).select(selectString);
-            
+
             const result = await query;
             if (result.error) throw result.error;
-            
+
             // Flatten the joined data
             data = result.data?.map(row => {
               const flatRow = { ...row };
@@ -487,7 +518,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
         const parts = col.split('.');
         return parts.length > 1 ? parts[1] : col;
       });
-      
+
       setReportData(data);
       setReportColumns(cleanColumns);
       setActiveTab('results');
@@ -521,7 +552,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
         });
 
       if (error) throw error;
-      
+
       await fetchSavedTemplates();
       setShowSaveModal(false);
       setReportName('');
@@ -559,9 +590,9 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
 
   const addJoin = () => {
     if (selectedTables.length >= 2) {
-      setJoins([...joins, { 
-        table1: selectedTables[0], 
-        table2: selectedTables[1], 
+      setJoins([...joins, {
+        table1: selectedTables[0],
+        table2: selectedTables[1],
         joinType: 'inner',
         table1Column: '',
         table2Column: ''
@@ -578,6 +609,21 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
   const removeJoin = (index: number) => {
     setJoins(joins.filter((_, i) => i !== index));
   };
+
+  const resetToDefault = () => {
+  setSelectedTables([]);
+  setSelectedColumns([]);
+  setReportType('table');
+  setFilters([]);
+  setJoins([]);
+  setReportData([]);
+  setReportColumns([]);
+  setActiveTab('create');
+
+  localStorage.removeItem(STORAGE_KEYS.ACTIVE_TAB);
+  localStorage.removeItem(STORAGE_KEYS.REPORT_BUILDER);
+};
+
 
   const renderBarChart = () => {
     if (reportData.length === 0) return null;
@@ -663,13 +709,17 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button 
-                onClick={fetchSavedTemplates}
+              <button
+                onClick={() => {
+                  resetToDefault();
+                  fetchSavedTemplates();
+                }}
                 className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all duration-200"
               >
                 <RefreshCw className="h-4 w-4" />
                 <span className="text-sm font-medium">{t('erms.refresh')}</span>
               </button>
+
             </div>
           </div>
         </div>
@@ -682,40 +732,37 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
             <nav className="flex space-x-8 px-6">
               <button
                 onClick={() => setActiveTab('create')}
-                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'create'
-                    ? 'border-teal-500 text-teal-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'create'
+                  ? 'border-teal-500 text-teal-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 <Plus className="h-4 w-4" />
                 <span>{t('customReports.createReport', 'Create Report')}</span>
               </button>
               <button
                 onClick={() => setActiveTab('templates')}
-                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'templates'
-                    ? 'border-teal-500 text-teal-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'templates'
+                  ? 'border-teal-500 text-teal-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 <Save className="h-4 w-4" />
                 <span>{t('customReports.savedTemplates', 'Saved Templates')}</span>
               </button>
               <button
                 onClick={() => setActiveTab('results')}
-                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeTab === 'results'
-                    ? 'border-teal-500 text-teal-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'results'
+                  ? 'border-teal-500 text-teal-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 <Eye className="h-4 w-4" />
                 <span>{t('customReports.results', 'Results')}</span>
               </button>
             </nav>
           </div>
-          
+
           <div className="p-6">
             {/* Create Report Tab */}
             {activeTab === 'create' && (
@@ -735,11 +782,10 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                       <button
                         key={option.type}
                         onClick={() => setReportType(option.type as any)}
-                        className={`p-4 border-2 rounded-lg transition-all duration-200 ${
-                          reportType === option.type
-                            ? 'border-teal-500 bg-teal-50 text-teal-700'
-                            : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                        }`}
+                        className={`p-4 border-2 rounded-lg transition-all duration-200 ${reportType === option.type
+                          ? 'border-teal-500 bg-teal-50 text-teal-700'
+                          : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                          }`}
                       >
                         <option.icon className="h-8 w-8 mx-auto mb-2" />
                         <div className="text-sm font-medium">{option.label}</div>
@@ -757,11 +803,10 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                     {availableTables.map((table) => (
                       <div
                         key={table.table_name}
-                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                          selectedTables.includes(table.table_name)
-                            ? 'border-teal-500 bg-teal-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedTables.includes(table.table_name)
+                          ? 'border-teal-500 bg-teal-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                          }`}
                         onClick={() => {
                           if (selectedTables.includes(table.table_name)) {
                             setSelectedTables(selectedTables.filter(t => t !== table.table_name));
@@ -837,7 +882,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                       <span className="text-sm">{t('customReports.addFilter', 'Add Filter')}</span>
                     </button>
                   </div>
-                  
+
                   {filters.length > 0 && (
                     <div className="space-y-3">
                       {filters.map((filter, index) => (
@@ -852,7 +897,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                               <option key={column} value={column}>{column}</option>
                             ))}
                           </select>
-                          
+
                           <select
                             value={filter.operator}
                             onChange={(e) => updateFilter(index, 'operator', e.target.value)}
@@ -864,7 +909,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                             <option value="lt">{t('customReports.lessThan', 'Less Than')}</option>
                             <option value="like">{t('customReports.contains', 'Contains')}</option>
                           </select>
-                          
+
                           <input
                             type="text"
                             value={filter.value}
@@ -872,7 +917,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                             placeholder={t('customReports.enterValue', 'Enter value')}
                             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                           />
-                          
+
                           <button
                             onClick={() => removeFilter(index)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
@@ -898,7 +943,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                         <span className="text-sm">Add Join</span>
                       </button>
                     </div>
-                    
+
                     {selectedTables.length === 2 && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                         <div className="flex items-center space-x-2 mb-2">
@@ -911,7 +956,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                         </p>
                       </div>
                     )}
-                    
+
                     {joins.length > 0 && (
                       <div className="space-y-3">
                         {joins.map((join, index) => (
@@ -925,7 +970,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                                 <option key={table} value={table}>{table}</option>
                               ))}
                             </select>
-                            
+
                             <select
                               value={join.table1Column}
                               onChange={(e) => updateJoin(index, 'table1Column', e.target.value)}
@@ -938,9 +983,9 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                                 </option>
                               ))}
                             </select>
-                            
+
                             <span className="text-sm text-gray-500">=</span>
-                            
+
                             <select
                               value={join.table2}
                               onChange={(e) => updateJoin(index, 'table2', e.target.value)}
@@ -950,7 +995,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                                 <option key={table} value={table}>{table}</option>
                               ))}
                             </select>
-                            
+
                             <select
                               value={join.table2Column}
                               onChange={(e) => updateJoin(index, 'table2Column', e.target.value)}
@@ -963,7 +1008,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                                 </option>
                               ))}
                             </select>
-                            
+
                             <button
                               onClick={() => removeJoin(index)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
@@ -987,7 +1032,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                     <Save className="h-4 w-4" />
                     <span>{t('customReports.saveTemplate', 'Save Template')}</span>
                   </button>
-                  
+
                   <button
                     onClick={executeReport}
                     disabled={selectedTables.length === 0 || selectedColumns.length === 0 || isLoading}
@@ -1012,7 +1057,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                     {t('customReports.yourSavedTemplates', 'Your Saved Templates')}
                   </h3>
                 </div>
-                
+
                 {savedTemplates.length === 0 ? (
                   <div className="text-center py-8">
                     <Save className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -1032,24 +1077,23 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                             <BarChart3 className="h-5 w-5 text-teal-600" />
                             <h4 className="font-medium text-gray-900">{template.name}</h4>
                           </div>
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            template.report_type === 'table' ? 'bg-blue-100 text-blue-800' :
+                          <span className={`px-2 py-1 text-xs rounded-full ${template.report_type === 'table' ? 'bg-blue-100 text-blue-800' :
                             template.report_type === 'bar' ? 'bg-green-100 text-green-800' :
-                            template.report_type === 'pie' ? 'bg-purple-100 text-purple-800' :
-                            'bg-orange-100 text-orange-800'
-                          }`}>
+                              template.report_type === 'pie' ? 'bg-purple-100 text-purple-800' :
+                                'bg-orange-100 text-orange-800'
+                            }`}>
                             {template.report_type}
                           </span>
                         </div>
-                        
+
                         <p className="text-sm text-gray-600 mb-3">{template.description}</p>
-                        
+
                         <div className="text-xs text-gray-500 mb-3">
                           <div>Tables: {template.tables.join(', ')}</div>
                           <div>Columns: {template.columns.length}</div>
                           <div>Created: {new Date(template.created_at).toLocaleDateString()}</div>
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() => loadTemplate(template)}
@@ -1080,13 +1124,17 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                     <span className="text-sm text-gray-500">
                       {reportData.length} {t('customReports.records', 'records')}
                     </span>
-                    <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all duration-200">
+                    <button
+                      onClick={downloadCSV}
+                      className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all duration-200"
+                    >
                       <Download className="h-4 w-4" />
                       <span className="text-sm">{t('common.export')}</span>
                     </button>
+
                   </div>
                 </div>
-                
+
                 {reportData.length === 0 ? (
                   <div className="text-center py-8">
                     <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -1131,7 +1179,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1145,7 +1193,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                   placeholder={t('customReports.enterTemplateName', 'Enter template name')}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {t('customReports.description', 'Description')}
@@ -1159,7 +1207,7 @@ export const CustomReports: React.FC<CustomReportsProps> = ({ user, onBack }) =>
                 />
               </div>
             </div>
-            
+
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
                 onClick={() => setShowSaveModal(false)}

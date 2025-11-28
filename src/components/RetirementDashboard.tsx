@@ -233,9 +233,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
       employee.date_of_actual_benefit_provided_for_medical_allowance_if_applic,
       employee.date_of_benefit_provided_for_hometown_travel_allowance_if_appli,
       employee.date_of_actual_benefit_provided_for_pending_travel_allowance_if,
-      employee.retirement_progress_status,
-      employee.pay_commission_status,
-      employee.group_insurance_status
     ];
 
     const filledFields = progressFields.filter(field => field && field.trim() !== '').length;
@@ -1454,16 +1451,16 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.designationAtRetirement')}</label>
                     <select
                       value={editingEmployee.designation_time_of_retirement || ''}
-                      onChange={e => setEditingEmployee({ ...editingEmployee, designation_time_of_retirement: e.target.value })}
+                      onChange={(e) => setEditingEmployee({ ...editingEmployee, designation_time_of_retirement: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">{t('erms.selectDesignation')}</option>
-                      {designations.map(designation => (
+                      {designations.map((designation) => (
                         <option key={designation.designation_id} value={designation.designation}>{designation.designation}</option>
                       ))}
                     </select>
-
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.assignedClerk')}</label>
                     <input
@@ -1488,15 +1485,14 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.departmentSubmitted')}</label>
                     <select
                       value={editingEmployee.department_submitted || ''}
-                      onChange={e => setEditingEmployee({ ...editingEmployee, department_submitted: e.target.value })}
+                      onChange={(e) => setEditingEmployee({ ...editingEmployee, department_submitted: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="">{t('erms.selectDepartment')}</option>
-                      {departments.map(dept => (
+                      {departments.map((dept) => (
                         <option key={dept.dept_id} value={dept.department}>{dept.department}</option>
                       ))}
                     </select>
-
                   </div>
 
                   <div>
@@ -1506,7 +1502,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, type_of_pension: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
-                      <option value="">{t('erms.selectTypeOfPension')}</option>
                       <option value="तात्पुरती">तात्पुरती</option>
                       <option value="नियमित">नियमित</option>
                     </select>

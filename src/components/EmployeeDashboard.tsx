@@ -30,6 +30,7 @@ interface Employee {
   retirement_date: string; // calculated field
   reason: string;
   assigned_clerk: string | null;
+  officer_assigned: string | null;
   dept_id: string;
   department: string; // from department table
   designation_id: string;
@@ -96,7 +97,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
           selectedDepartment: parsed.selectedDepartment || '',
           selectedClerk: parsed.selectedClerk || '',
           selectedReason: parsed.selectedReason || '',
-          selectedCadre: parsed.selectedCadre || ''
+          selectedCadre: parsed.selectedCadre || '',
+          selectedDesignation: parsed.selectedDesignation || ''
         };
       }
     } catch (error) {
@@ -107,7 +109,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       selectedDepartment: '',
       selectedClerk: '',
       selectedReason: '',
-      selectedCadre: ''
+      selectedCadre: '',
+      selectedDesignation: ''
     };
   };
 
@@ -144,6 +147,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
   const [selectedClerk, setSelectedClerk] = useState(initialFilters.selectedClerk);
   const [selectedReason, setSelectedReason] = useState(initialFilters.selectedReason);
   const [selectedCadre, setSelectedCadre] = useState(initialFilters.selectedCadre);
+  const [selectedDesignation, setSelectedDesignation] = useState(initialFilters.selectedDesignation);
   const [currentPage, setCurrentPage] = useState(initialPagination.currentPage);
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [recordsPerPage, setRecordsPerPage] = useState(initialPagination.recordsPerPage);
@@ -221,6 +225,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
   const [talukas, setTalukas] = useState<Taluka[]>([]);
   const [offices, setOffices] = useState<Office[]>([]);
   const [clerks, setClerks] = useState<ClerkData[]>([]);
+  const [officers, setOfficers] = useState<ClerkData[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
 
   // Function to calculate retirement date based on date of birth and Cadre
@@ -277,6 +282,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         selectedClerk,
         selectedReason,
         selectedCadre,
+        selectedDesignation,
         timestamp: Date.now()
       };
       localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(filterState));
@@ -359,6 +365,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       retirement_date: '',
       reason: '',
       assigned_clerk: '',
+      officer_assigned: '',
       dept_id: '',
       designation_id: '',
       tal_id: '',
@@ -432,7 +439,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     if (isInitialized) {
       saveFilters();
     }
-  }, [searchTerm, selectedDepartment, selectedClerk, selectedReason, selectedCadre, isInitialized]);
+  }, [searchTerm, selectedDepartment, selectedClerk, selectedReason, selectedCadre, isInitialized, selectedDesignation]);
 
   // Auto-save pagination when it changes
   useEffect(() => {
@@ -455,7 +462,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
   useEffect(() => {
     filterEmployees();
-  }, [employees, searchTerm, selectedDepartment, selectedClerk, selectedReason, selectedCadre, filterType]);
+  }, [employees, searchTerm, selectedDepartment, selectedClerk, selectedReason, selectedCadre, filterType, selectedDesignation]);
 
   const fetchAllData = async () => {
     setIsLoading(true);
@@ -466,7 +473,8 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         fetchDesignations(),
         fetchTalukas(),
         fetchOffices(),
-        fetchClerks()
+        fetchClerks(),
+        fetchOfficers()
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -526,6 +534,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
           retirement_date,
           reason,
           assigned_clerk,
+          officer_assigned,
           date_of_assignment,
           dept_id,
           designation_id,
@@ -650,6 +659,32 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     }
   };
 
+  const fetchOfficers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select(`
+          user_id,
+          name,
+          roles!inner(name)
+        `)
+        .eq('roles.name', 'officer')
+        .not('name', 'is', null);
+
+      if (error) throw error;
+
+      const officersData = data?.map(officer => ({
+        user_id: officer.user_id,
+        name: officer.name,
+        role_name: officer.roles?.name || 'officer'
+      })) || [];
+
+      setOfficers(officersData);
+    } catch (error) {
+      console.error('Error fetching officers:', error);
+    }
+  };
+
   // Update the filterEmployees function to include upcomingRetirements filter
   const filterEmployees = () => {
     let filtered = employees;
@@ -672,6 +707,14 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
     if (selectedReason) {
       filtered = filtered.filter(emp => emp.reason === selectedReason);
+    }
+
+    if (selectedCadre) {
+      filtered = filtered.filter(emp => (emp.Cadre || '').toLowerCase() === selectedCadre.toLowerCase());
+    }
+
+    if (selectedDesignation) {
+      filtered = filtered.filter(emp => String(emp.designation_id) === selectedDesignation);
     }
 
     if (filterType === 'upcomingRetirements') {
@@ -719,6 +762,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       retirement_date: '',
       reason: '',
       assigned_clerk: '',
+      officer_assigned: '',
       dept_id: '',
       designation_id: '',
       tal_id: '',
@@ -741,6 +785,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       reason: employee.reason,
       Cadre: employee.Cadre,
       assigned_clerk: employee.assigned_clerk,
+      officer_assigned: employee.officer_assigned,
       dept_id: employee.dept_id,
       designation_id: employee.designation_id,
       tal_id: employee.tal_id,
@@ -844,6 +889,13 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
           .update(employeeData)
           .eq('emp_id', editingEmployee.emp_id);
         if (error) throw error;
+
+        await ermsClient
+          .from('retirement_progress')
+          .update({
+            officer_assigned: formData.officer_assigned || null
+          })
+          .eq('emp_id', editingEmployee.emp_id);
 
         // Show success message for update
         alert(t('common.success') + ': Employee updated successfully');
@@ -950,6 +1002,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     setSelectedClerk('');
     setSelectedReason('');
     setSelectedCadre('');
+    setSelectedDesignation('');
     setCurrentPage(1);
     setFilterType('');
   };
@@ -1029,7 +1082,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
             onClick={() => {
               setFilterType('total');
-              setTimeout(() => {}, 0);
+              setTimeout(() => { }, 0);
             }}
           >
             <div className="flex items-center justify-between">
@@ -1047,7 +1100,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
             onClick={() => {
               setFilterType('upcomingRetirements');
-              setTimeout(() => {}, 0);
+              setTimeout(() => { }, 0);
             }}
           >
             <div className="flex items-center justify-between">
@@ -1066,7 +1119,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
             onClick={() => {
               setFilterType('assigned');
-              setTimeout(() => {}, 0);
+              setTimeout(() => { }, 0);
             }}
           >
             <div className="flex items-center justify-between">
@@ -1084,7 +1137,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
             className="bg-white rounded-xl shadow-md border border-red-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
             onClick={() => {
               setFilterType('unassigned');
-              setTimeout(() => {}, 0);
+              setTimeout(() => { }, 0);
             }}
           >
             <div className="flex items-center justify-between">
@@ -1165,7 +1218,28 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                 ))}
               </select>
 
+                            <select
+                value={selectedCadre}
+                onChange={(e) => setSelectedCadre(e.target.value)}
+                className="px-4 py-3 border border-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                <option value="">संवर्ग</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+              </select>
+
               <select
+                value={selectedDesignation}
+                onChange={(e) => setSelectedDesignation(e.target.value)}
+                className="px-4 py-3 border border-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                <option value="">{t('erms.selectDesignation')}</option>
+                {designations.map(designation => (
+                  <option key={designation.designation_id} value={String(designation.designation_id)}>{designation.designation}</option>
+                ))}
+              </select>
+
+              {/* <select
                 value={selectedReason}
                 onChange={(e) => setSelectedReason(e.target.value)}
                 className="px-4 py-3 border border-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -1174,7 +1248,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                 <option value="मृत्यू झाल्याने">मृत्यू झाल्याने</option>
                 <option value="नियत वयोमान">नियत वयोमान</option>
                 <option value="स्वेच्छा सेवा निवृत्ती">स्वेच्छा सेवा निवृत्ती</option>
-              </select>
+              </select> */}
 
               <button
                 onClick={clearFilters}
@@ -1407,7 +1481,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('erms.Cadre')} <span className="text-red-500">*</span>
+                    {t('erms.cadre')} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.Cadre || ''}
@@ -1550,6 +1624,22 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.assignedOfficer')}
+                  </label>
+                  <select
+                    value={formData.officer_assigned || ''}
+                    onChange={(e) => setFormData({ ...formData, officer_assigned: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectOfficer')}</option>
+                    {officers.map(officer => (
+                      <option key={officer.user_id} value={officer.user_id}>{officer.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1636,6 +1726,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                   <input
                     type="date"
                     value={formData.date_of_birth || ''}
+                    readOnly
                     onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -1655,7 +1746,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('erms.Cadre')} <span className="text-red-500">*</span>
+                    {t('erms.cadre')} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.Cadre || ''}
@@ -1794,6 +1885,22 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                     <option value="">{t('erms.selectClerk')}</option>
                     {clerks.map(clerk => (
                       <option key={clerk.user_id} value={clerk.user_id}>{clerk.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.assignedOfficer')}
+                  </label>
+                  <select
+                    value={formData.officer_assigned || ''}
+                    onChange={(e) => setFormData({ ...formData, officer_assigned: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectOfficer')}</option>
+                    {officers.map(officer => (
+                      <option key={officer.user_id} value={officer.user_id}>{officer.name}</option>
                     ))}
                   </select>
                 </div>

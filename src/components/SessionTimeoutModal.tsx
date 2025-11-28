@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Clock, AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
+import { SESSION_CONFIG } from '../utils/security';
 
 interface SessionTimeoutModalProps {
   isVisible: boolean;
@@ -80,7 +81,7 @@ export const SessionTimeoutModal: React.FC<SessionTimeoutModalProps> = ({
               <div
                 className="bg-gradient-to-r from-red-500 to-orange-500 h-2 rounded-full transition-all duration-1000"
                 style={{
-                  width: `${Math.max(0, (timeLeft / (5 * 60 * 1000)) * 100)}%`
+                  width: `${Math.max(0, (timeLeft / SESSION_CONFIG.WARNING_DURATION) * 100)}%`
                 }}
               />
             </div>

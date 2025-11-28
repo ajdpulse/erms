@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
+import {
   Users,
   Calendar,
   FileText,
@@ -27,6 +27,8 @@ import { CustomReports } from './CustomReports';
 import { usePermissions } from '../hooks/usePermissions';
 import { supabase } from "../lib/supabase"; // adjust import path if needed
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { SessionTimeoutModal } from './SessionTimeoutModal';
+import { SessionTimeoutManager, SESSION_CONFIG } from '../utils/security';
 
 interface ERMSDashboardProps {
   user: SupabaseUser;
@@ -43,6 +45,13 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
     return localStorage.getItem('ermsActiveModule') || defaultModule;
   });
 
+  const [sessionManager] = useState(() => new SessionTimeoutManager(
+    () => handleSessionTimeout(),
+    () => setShowTimeoutWarning(true)
+  ));
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const [remainingTime, setRemainingTime] = useState(SESSION_CONFIG.WARNING_DURATION);
+
   useEffect(() => {
     localStorage.setItem('ermsActiveModule', activeModule);
   }, [activeModule]);
@@ -52,7 +61,7 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
   };
 
   const handleBackToMain = () => {
-     if (window && window.location) {
+    if (window && window.location) {
       localStorage.removeItem('ermsActiveModule');
       window.location.reload(); // or redirect to login
     }
@@ -65,7 +74,17 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
     window.location.href = '/';
   };
 
-  // Start of New changes to deploy
+  const handleSessionTimeout = async () => {
+    setShowTimeoutWarning(false);
+    sessionManager.stop();
+    await handleSignOut();
+  };
+
+  const handleExtendSession = () => {
+    sessionManager.extendSession();
+    setShowTimeoutWarning(false);
+  };
+
   const modules = [
     {
       id: 'employee-dashboard',
@@ -195,11 +214,34 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
     );
   };
 
+  useEffect(() => {
+    if (user) {
+      sessionManager.start();
+
+      let interval: NodeJS.Timeout;
+      if (showTimeoutWarning) {
+        interval = setInterval(() => {
+          setRemainingTime(sessionManager.getRemainingTime());
+        }, 1000);
+      }
+
+      return () => {
+        if (interval) clearInterval(interval);
+        sessionManager.stop();
+      };
+    } else {
+      sessionManager.stop();
+    }
+    return () => {
+      sessionManager.stop();
+    };
+  }, [user, sessionManager, showTimeoutWarning]);
+
   return (
     // Start of New changes to deploy
     <div className="min-h-screen bg-gradient-to-tr from-gray-100 via-gray-50 to-blue-100 flex">
       {/* Left Sidebar */}
-      <div 
+      <div
         className="w-80 bg-gradient-to-b from-white via-blue-50 to-blue-100 shadow-xl border-r border-blue-200 flex flex-col fixed top-0 left-0 h-screen z-30"
         style={{ height: '100vh' }}
       >
@@ -243,8 +285,8 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
                   className={`w-full text-left p-4 rounded-lg transition-all duration-300 group flex items-center gap-4
                     ${
                       activeModule === module.id
-                        ? 'bg-blue-100 border border-blue-400 shadow-md'
-                        : 'bg-transparent hover:bg-blue-50 border border-transparent hover:border-blue-200'
+                      ? 'bg-blue-100 border border-blue-400 shadow-md'
+                      : 'bg-transparent hover:bg-blue-50 border border-transparent hover:border-blue-200'
                     }
                   `}
                   style={{
@@ -257,12 +299,12 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
                   <div className="flex-1 min-w-0">
                     <h3 className={`font-semibold transition-colors duration-300 ${
                       activeModule === module.id ? 'text-blue-900' : 'text-blue-800 group-hover:text-blue-700'
-                    }`}>
+                      }`}>
                       {module.name}
                     </h3>
                     <p className={`text-sm mt-1 transition-colors duration-300 ${
                       activeModule === module.id ? 'text-blue-600' : 'text-blue-500 group-hover:text-blue-500'
-                    }`}>
+                      }`}>
                       {module.description}
                     </p>
                   </div>
@@ -288,6 +330,13 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
       <div className="flex-1 overflow-y-auto ml-80">
         {renderModuleContent()}
       </div>
+
+      <SessionTimeoutModal
+        isVisible={showTimeoutWarning}
+        remainingTime={remainingTime}
+        onExtendSession={handleExtendSession}
+        onSignOut={handleSessionTimeout}
+      />
     </div>
   );
 };
