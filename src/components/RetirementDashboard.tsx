@@ -748,7 +748,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
   }, [activeTab, filteredEmployees]);
 
   const handleEditEmployee = useCallback(async (employee: RetirementEmployee) => {
-    debugger
     // Check if file is in tracking
     if (employee.in_file_tracking) {
       // Check if current user is assigned to this file

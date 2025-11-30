@@ -224,7 +224,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     }
   };
 
- const fetchPayCommissionRecords = async () => {
+const fetchPayCommissionRecords = async () => {
   try {
     const { data, error } = await ermsClient
       .from('pay_commission')
@@ -259,9 +259,9 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
 
     if (error) throw error;
 
-    // 🔹 NEW: Fetch Panchayatraj & Shalarth IDs from employee table
     const employeeIds = data?.map(x => x.emp_id) || [];
 
+    // 🔹 Fetch Panchayatraj & Shalarth IDs
     const { data: employeeData } = await ermsClient
       .from('employee')
       .select(`
@@ -281,29 +281,44 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
       ])
     );
 
-    // Fetch file tracking status
-    const recordIds = data?.map(rec => rec.id) || [];
+    // ⭐ NEW IMPORTANT FIX: Fetch correct retirement_id mapping
+    const { data: retirementLookup } = await ermsClient
+      .from('employee_retirement')
+      .select('emp_id, id');
+
+    const retirementIdMap = new Map(
+      (retirementLookup || []).map(r => [r.emp_id, r.id])
+    );
+
+    // ⭐ Correct retirement IDs for tracking lookup
+    const correctRetirementIds =
+      data?.map(rec => retirementIdMap.get(rec.emp_id)) || [];
+
+    // ⭐ Fetch tracking data using correct retirement IDs
     const { data: trackingData } = await ermsClient
       .from('retirement_file_tracking')
       .select('retirement_id, status')
-      .in('retirement_id', recordIds)
+      .in('retirement_id', correctRetirementIds)
       .in('status', ['assigned', 'completed']);
 
-    const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+    const trackingMap = new Map(
+      trackingData?.map(t => [t.retirement_id, t.status]) || []
+    );
 
-    // 🔹 Merge tracking + employee extra fields
+    // 🔹 Merge tracking + IDs
     const recordsWithTracking = data?.map(rec => {
       const extraFields = employeeMap.get(rec.emp_id) || {
         panchayatrajsevarth_id: null,
         Shalarth_Id: null
       };
 
+      const retirementId = retirementIdMap.get(rec.emp_id);
+
       return {
         ...rec,
-        in_file_tracking: trackingMap.has(rec.id),
-        file_tracking_status: trackingMap.get(rec.id) || null,
+        in_file_tracking: trackingMap.has(retirementId),
+        file_tracking_status: trackingMap.get(retirementId) || null,
 
-        // 🔹 NEW: Attached IDs
         panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
         Shalarth_Id: extraFields.Shalarth_Id
       };
@@ -314,6 +329,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     console.error('Error fetching pay commission records:', error);
   }
 };
+
 
   const fetchClerks = async () => {
     try {

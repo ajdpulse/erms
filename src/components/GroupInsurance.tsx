@@ -271,7 +271,7 @@ const fetchGroupInsuranceRecords = async () => {
 
     if (error) throw error;
 
-    // 🔹 NEW: Fetch Panchayatraj & Shalarth IDs
+    // 🔹 Fetch Panchayatraj & Shalarth IDs
     const employeeIds = data?.map(x => x.emp_id) || [];
 
     const { data: employeeData } = await ermsClient
@@ -293,29 +293,44 @@ const fetchGroupInsuranceRecords = async () => {
       ])
     );
 
-    // Fetch file tracking status
-    const recordIds = data?.map(rec => rec.id) || [];
+    // ⭐ NEW: Fetch correct retirement_id mapping
+    const { data: retirementLookup } = await ermsClient
+      .from('employee_retirement')
+      .select('emp_id, id');
+
+    const retirementIdMap = new Map(
+      (retirementLookup || []).map(r => [r.emp_id, r.id])
+    );
+
+    // ⭐ Correct retirement IDs for tracking lookup
+    const correctRetirementIds =
+      data?.map(rec => retirementIdMap.get(rec.emp_id)) || [];
+
+    // ⭐ Fetch file tracking status with correct retirement_id
     const { data: trackingData } = await ermsClient
       .from('retirement_file_tracking')
       .select('retirement_id, status')
-      .in('retirement_id', recordIds)
+      .in('retirement_id', correctRetirementIds)
       .in('status', ['assigned', 'completed']);
 
-    const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+    const trackingMap = new Map(
+      trackingData?.map(t => [t.retirement_id, t.status]) || []
+    );
 
-    // 🔹 NEW: Merge extra employee fields + tracking
+    // 🔹 Merge extra employee fields + correct tracking
     const recordsWithTracking = data?.map(rec => {
       const extraFields = employeeMap.get(rec.emp_id) || {
         panchayatrajsevarth_id: null,
         Shalarth_Id: null
       };
 
+      const retirementId = retirementIdMap.get(rec.emp_id);
+
       return {
         ...rec,
-        in_file_tracking: trackingMap.has(rec.id),
-        file_tracking_status: trackingMap.get(rec.id) || null,
+        in_file_tracking: trackingMap.has(retirementId),
+        file_tracking_status: trackingMap.get(retirementId) || null,
 
-        // 🔹 NEW: added fields
         panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
         Shalarth_Id: extraFields.Shalarth_Id
       };
@@ -326,7 +341,6 @@ const fetchGroupInsuranceRecords = async () => {
     console.error('Error fetching group insurance records:', error);
   }
 };
-
 
   const fetchClerks = async () => {
     try {

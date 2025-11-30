@@ -349,7 +349,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     }
   };
 
-const fetchRetirementProgress = async () => {debugger
+const fetchRetirementProgress = async () => {
   try {
     const { data, error } = await ermsClient
       .from('retirement_progress')
