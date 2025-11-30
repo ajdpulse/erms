@@ -238,60 +238,95 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
     }
   };
 
-  const fetchGroupInsuranceRecords = async () => {
-    try {
-      const { data, error } = await ermsClient
-        .from('group_insurance')
-        .select(`
-          id,
-          emp_id,
-          employee_name,
-          retirement_date,
-          assigned_clerk,
-          department,
-          age,
-          year_1990,
-          year_2003,
-          year_2010,
-          year_2020,
-          overall_comments,
-          last_updated,
-          created_at,
-          updated_at,
-          year_1990_comment,
-          year_2003_comment,
-          year_2010_comment,
-          year_2020_comment,
-          year_1990_date,
-          year_2003_date,
-          year_2010_date,
-          year_2020_date
-        `)
-        .order('employee_name');
+const fetchGroupInsuranceRecords = async () => {
+  try {
+    const { data, error } = await ermsClient
+      .from('group_insurance')
+      .select(`
+        id,
+        emp_id,
+        employee_name,
+        retirement_date,
+        assigned_clerk,
+        department,
+        age,
+        year_1990,
+        year_2003,
+        year_2010,
+        year_2020,
+        overall_comments,
+        last_updated,
+        created_at,
+        updated_at,
+        year_1990_comment,
+        year_2003_comment,
+        year_2010_comment,
+        year_2020_comment,
+        year_1990_date,
+        year_2003_date,
+        year_2010_date,
+        year_2020_date
+      `)
+      .order('employee_name');
 
-      if (error) throw error;
+    if (error) throw error;
 
-      // Fetch file tracking status
-      const recordIds = data?.map(rec => rec.id) || [];
-      const { data: trackingData } = await ermsClient
-        .from('retirement_file_tracking')
-        .select('retirement_id, status')
-        .in('retirement_id', recordIds)
-        .in('status', ['assigned', 'completed']);
+    // 🔹 NEW: Fetch Panchayatraj & Shalarth IDs
+    const employeeIds = data?.map(x => x.emp_id) || [];
 
-      const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+    const { data: employeeData } = await ermsClient
+      .from('employee')
+      .select(`
+        emp_id,
+        panchayatrajsevarth_id,
+        Shalarth_Id
+      `)
+      .in('emp_id', employeeIds);
 
-      const recordsWithTracking = data?.map(rec => ({
+    const employeeMap = new Map(
+      (employeeData || []).map(e => [
+        e.emp_id,
+        {
+          panchayatrajsevarth_id: e.panchayatrajsevarth_id,
+          Shalarth_Id: e.Shalarth_Id
+        }
+      ])
+    );
+
+    // Fetch file tracking status
+    const recordIds = data?.map(rec => rec.id) || [];
+    const { data: trackingData } = await ermsClient
+      .from('retirement_file_tracking')
+      .select('retirement_id, status')
+      .in('retirement_id', recordIds)
+      .in('status', ['assigned', 'completed']);
+
+    const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+
+    // 🔹 NEW: Merge extra employee fields + tracking
+    const recordsWithTracking = data?.map(rec => {
+      const extraFields = employeeMap.get(rec.emp_id) || {
+        panchayatrajsevarth_id: null,
+        Shalarth_Id: null
+      };
+
+      return {
         ...rec,
         in_file_tracking: trackingMap.has(rec.id),
-        file_tracking_status: trackingMap.get(rec.id) || null
-      })) || [];
+        file_tracking_status: trackingMap.get(rec.id) || null,
 
-      setGroupInsuranceRecords(recordsWithTracking);
-    } catch (error) {
-      console.error('Error fetching group insurance records:', error);
-    }
-  };
+        // 🔹 NEW: added fields
+        panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
+        Shalarth_Id: extraFields.Shalarth_Id
+      };
+    }) || [];
+
+    setGroupInsuranceRecords(recordsWithTracking);
+  } catch (error) {
+    console.error('Error fetching group insurance records:', error);
+  }
+};
+
 
   const fetchClerks = async () => {
     try {
@@ -359,7 +394,9 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
       filtered = filtered.filter(record =>
         String(record.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         String(record.employee_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(record.department || '').toLowerCase().includes(searchTerm.toLowerCase())
+        String(record.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(record.panchayatrajsevarth_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(record.Shalarth_Id || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -708,10 +745,64 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
                 <RefreshCw className="h-4 w-4" />
                 <span className="text-sm">{t('erms.refresh')}</span>
               </button>
-              <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300">
-                <Download className="h-4 w-4" />
-                <span className="text-sm">{t('common.export')}</span>
-              </button>
+              <button
+  onClick={() => {
+    const data = getTabFilteredRecords(); // export UI-visible data only
+
+    if (!data || data.length === 0) {
+      alert("No data available to export");
+      return;
+    }
+
+    // UI Table Columns ONLY
+    const uiColumns = [
+      "Shalarth_Id",
+      "panchayatrajsevarth_id",
+      "emp_id",
+      "employee_name",
+      "department",
+      "retirement_date",
+      "age",
+      "assigned_clerk",
+      "year_1990",
+      "year_2003",
+      "year_2010",
+      "year_2020"
+    ];
+
+    const headers = uiColumns.join(",");
+
+    const rows = data.map(row =>
+      uiColumns
+        .map(key => {
+          let value = row[key];
+
+          // Format date fields same as UI
+          if (key === "retirement_date" && value) {
+            value = new Date(value).toLocaleDateString();
+          }
+
+          return `"${value !== null && value !== undefined ? value : ''}"`;
+        })
+        .join(",")
+    );
+
+    const csvContent = [headers, ...rows].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "group_insurance_ui_table.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }}
+  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
+>
+  <Download className="h-4 w-4" />
+  <span className="text-sm">{t('common.export')}</span>
+</button>
+
             </div>
           </div>
 
@@ -812,6 +903,8 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
           <table className="w-full">
             <thead className="bg-blue-50 border-b border-blue-200">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.shalarthId')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.sevarthId')}</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.employee')}</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.department')}</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">Retirement Date</th>
@@ -845,6 +938,8 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
                           : ''
                       }`}
                     >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.Shalarth_Id || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.panchayatrajsevarth_id || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{record.employee_name}</div>
@@ -855,10 +950,10 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.retirement_date ? new Date(record.retirement_date).toLocaleDateString() : '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.age || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.assigned_clerk || t('erms.unassigned')}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(record.year_1990)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(record.year_2003)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(record.year_2010)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(record.year_2020)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center" title={record.year_1990 || ''}>{getStatusIcon(record.year_1990)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center" title={record.year_2003 || ''}>{getStatusIcon(record.year_2003)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center" title={record.year_2010 || ''}>{getStatusIcon(record.year_2010)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center" title={record.year_2020 || ''}>{getStatusIcon(record.year_2020)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center space-x-2">
                           <button className="text-blue-600 hover:text-blue-900 p-1 rounded">

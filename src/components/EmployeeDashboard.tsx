@@ -693,7 +693,9 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       filtered = filtered.filter(emp =>
         String(emp.emp_id).toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.employee_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.department?.toLowerCase().includes(searchTerm.toLowerCase())
+        emp.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.panchayatrajsevarth_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.ddo_code?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -1218,7 +1220,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                 ))}
               </select>
 
-                            <select
+              <select
                 value={selectedCadre}
                 onChange={(e) => setSelectedCadre(e.target.value)}
                 className="px-4 py-3 border border-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -1269,7 +1271,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
               <thead className="bg-blue-50 border-b border-blue-200">
                 <tr>
                   {[
-                    "कर्मचारी आयडी", "कर्मचारी नाव", "जन्म तारीख", "डीडीओ कोड", "संवर्ग",
+                    "सेवार्थ आयडी", "कर्मचारी नाव", "जन्म तारीख", "डीडीओ कोड", "संवर्ग",
                     "पदाचे नाव", "विभाग", "कार्यरत कार्यालयाचे नाव", "नियुक्त लिपिक",
                     "सेवेत रुजू होण्याची तारीख", "सेवानिवृत्ती तारीख", "क्रिया"
                   ].map((heading, i) => (
@@ -1294,10 +1296,11 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
                     .sort((a, b) => new Date(a.date_of_birth).getTime() - new Date(b.date_of_birth).getTime())
                     .map((employee) => (
                       <tr key={employee.emp_id} className="hover:bg-blue-50 transition-colors duration-200">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.emp_id || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.panchayatrajsevarth_id || '-'}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
+                            <div className="text-sm text-gray-500">{employee.emp_id}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{employee.date_of_birth}</td>

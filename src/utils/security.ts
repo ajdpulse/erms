@@ -32,7 +32,7 @@ export const decryptPassword = (encryptedPassword: string): string => {
  * Session timeout configuration
  */
 export const SESSION_CONFIG = {
-  TIMEOUT_DURATION: 2 * 60 * 1000,  // 5 minutes in milliseconds
+  TIMEOUT_DURATION: 5 * 60 * 1000,  // 5 minutes in milliseconds
   WARNING_DURATION: 1 * 60 * 1000,  // Show warning 1 minute before timeout
   CHECK_INTERVAL: 60 * 1000,        // Check every minute
 };

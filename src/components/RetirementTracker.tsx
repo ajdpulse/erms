@@ -200,7 +200,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
   const [clerks, setClerks] = useState<ClerkData[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<RetirementProgress[]>([]);
-  
+
   const [persistenceEnabled, setPersistenceEnabled] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -349,58 +349,92 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     }
   };
 
-  const fetchRetirementProgress = async () => {
-    try {
-      const { data, error } = await ermsClient
-        .from('retirement_progress')
-        .select(`
-          id,
-          emp_id,
-          employee_name,
-          age,
-          assigned_clerk,
-          department,
-          status,
-          date_of_birth_verification,
-          medical_certificate,
-          nomination,
-          permanent_registration,
-          computer_exam_passed,
-          marathi_hindi_exam_exemption,
-          post_service_exam,
-          appointed_employee,
-          validity_certificate,
-          verification_completed,
-          has_undertaking_been_taken_on_21_12_2021,
-          no_objection_no_inquiry_certificate,
-          retirement_order,
-          birth_certificate_doc_submitted,
-          common_progress_comment,
-          common_progress_date,
-          government_decision_march_31_2023,
-          overall_comment,
-          created_at,
-          updated_at
-        `)
-        .order('age', { ascending: false });
+const fetchRetirementProgress = async () => {debugger
+  try {
+    const { data, error } = await ermsClient
+      .from('retirement_progress')
+      .select(`
+        id,
+        emp_id,
+        employee_name,
+        age,
+        assigned_clerk,
+        department,
+        status,
+        date_of_birth_verification,
+        medical_certificate,
+        nomination,
+        permanent_registration,
+        computer_exam_passed,
+        marathi_hindi_exam_exemption,
+        post_service_exam,
+        appointed_employee,
+        validity_certificate,
+        verification_completed,
+        has_undertaking_been_taken_on_21_12_2021,
+        no_objection_no_inquiry_certificate,
+        retirement_order,
+        birth_certificate_doc_submitted,
+        common_progress_comment,
+        common_progress_date,
+        government_decision_march_31_2023,
+        overall_comment,
+        created_at,
+        updated_at
+      `)
+      .order('age', { ascending: false });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      // Fetch file tracking status for all retirement IDs
-      const retirementIds = data?.map(emp => emp.id) || [];
-      const { data: trackingData } = await ermsClient
-        .from('retirement_file_tracking')
-        .select('retirement_id, status')
-        .in('retirement_id', retirementIds)
-        .in('status', ['assigned', 'completed']);
+    // 🔹 Fetch Panchayatraj Sevarth ID & Shalarth ID
+    const employeeIds = data?.map(x => x.emp_id) || [];
 
-      const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+    const { data: employeeData } = await ermsClient
+      .from('employee')
+      .select(`
+        emp_id,
+        panchayatrajsevarth_id,
+        Shalarth_Id
+      `)
+      .in('emp_id', employeeIds);
 
-      // Update status for each employee based on progress and save to database
-      const employeesWithUpdatedStatus = await Promise.all((data || []).map(async (employee) => {
+    const employeeMap = new Map(
+      (employeeData || []).map(e => [
+        e.emp_id,
+        {
+          panchayatrajsevarth_id: e.panchayatrajsevarth_id,
+          Shalarth_Id: e.Shalarth_Id
+        }
+      ])
+    );
+
+    // 🔥 NEW IMPORTANT FIX: Fetch correct retirement IDs from employee_retirement
+    const { data: retirementLookup } = await ermsClient
+      .from('employee_retirement')
+      .select('emp_id, id');
+
+    const retirementIdMap = new Map(
+      (retirementLookup || []).map(r => [r.emp_id, r.id])
+    );
+
+    // 🔥 Use correct retirement IDs for tracking
+    const correctRetirementIds = data?.map(emp => retirementIdMap.get(emp.emp_id)) || [];
+
+    // Fetch file tracking status
+    const { data: trackingData } = await ermsClient
+      .from('retirement_file_tracking')
+      .select('retirement_id, status')
+      .in('retirement_id', correctRetirementIds)
+      .in('status', ['assigned', 'completed']);
+
+    const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+
+    // 🔥 Merge data
+    const employeesWithUpdatedStatus = await Promise.all(
+      (data || []).map(async (employee) => {
         const calculatedStatus = getProgressStatus(employee);
 
-        // Only update if status has changed
+        // update status (unchanged)
         if (employee.status !== calculatedStatus) {
           try {
             const { error: updateError } = await ermsClient
@@ -410,27 +444,38 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
 
             if (updateError) {
               console.error('Error updating status for employee:', employee.emp_id, updateError);
-            } else {
-              console.log(`Updated status for ${employee.emp_id}: ${calculatedStatus}`);
             }
           } catch (updateError) {
             console.error('Error updating employee status:', updateError);
           }
         }
 
+        const extraFields = employeeMap.get(employee.emp_id) || {
+          panchayatrajsevarth_id: null,
+          Shalarth_Id: null
+        };
+
+        // map correct retirement ID
+        const retirementId = retirementIdMap.get(employee.emp_id);
+
         return {
           ...employee,
           status: calculatedStatus,
-          in_file_tracking: trackingMap.has(employee.id),
-          file_tracking_status: trackingMap.get(employee.id) || null
-        };
-      }));
+          in_file_tracking: trackingMap.has(retirementId),
+          file_tracking_status: trackingMap.get(retirementId) || null,
 
-      setRetirementProgress(employeesWithUpdatedStatus);
-    } catch (error) {
-      console.error('Error fetching retirement progress:', error);
-    }
-  };
+          // extra IDs
+          panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
+          Shalarth_Id: extraFields.Shalarth_Id
+        };
+      })
+    );
+
+    setRetirementProgress(employeesWithUpdatedStatus);
+  } catch (error) {
+    console.error('Error fetching retirement progress:', error);
+  }
+};
 
   const fetchClerks = async () => {
     try {
@@ -486,7 +531,9 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
       filtered = filtered.filter(emp =>
         String(emp.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         String(emp.employee_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(emp.department || '').toLowerCase().includes(searchTerm.toLowerCase())
+        String(emp.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(emp.panchayatrajsevarth_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(emp.Shalarth_Id || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -526,10 +573,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
 
   const getPaginatedEmployees = () => {
     const tabFiltered = getTabFilteredEmployees();
-    
+
     const startIndex = (currentPage - 1) * recordsPerPage;
     const endIndex = startIndex + recordsPerPage;
-    const ReturnedData= tabFiltered.slice(startIndex, endIndex).length!=0? tabFiltered.slice(startIndex, endIndex):tabFiltered;
+    const ReturnedData = tabFiltered.slice(startIndex, endIndex).length != 0 ? tabFiltered.slice(startIndex, endIndex) : tabFiltered;
     return ReturnedData
   };
 
@@ -668,10 +715,73 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                     <RefreshCw className="h-4 w-4" />
                     <span className="text-sm font-semibold">{t('erms.refresh')}</span>
                   </button>
-                  <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300">
-                    <Download className="h-4 w-4" />
-                    <span className="text-sm font-semibold">{t('common.export')}</span>
-                  </button>
+                  <button
+  onClick={() => {
+    const data = getTabFilteredEmployees(); // 👈 export filtered table data (UI only)
+
+    if (!data || data.length === 0) {
+      alert("No data available to export");
+      return;
+    }
+
+    // Export ONLY UI-side table columns
+    const uiColumns = [
+      "Shalarth_Id",
+      "panchayatrajsevarth_id",
+      "emp_id",
+      "employee_name",
+      "status",
+      "date_of_birth_verification",
+      "birth_certificate_doc_submitted",
+      "medical_certificate",
+      "nomination",
+      "permanent_registration",
+      "computer_exam_passed",
+      "marathi_hindi_exam_exemption",
+      "post_service_exam",
+      "appointed_employee",
+      "validity_certificate",
+      "verification_completed",
+      "has_undertaking_been_taken_on_21_12_2021",
+      "no_objection_no_inquiry_certificate",
+      "retirement_order",
+    ];
+
+    const headers = uiColumns.join(",");
+
+    const rows = data.map(row =>
+      uiColumns
+        .map(key => {
+          let value = row[key];
+
+          // Format date same as UI
+          if (key === "retirement_date" && value) {
+            value = new Date(value).toLocaleDateString();
+          }
+
+          return `"${value !== null && value !== undefined ? value : ''}"`;
+        })
+        .join(",")
+    );
+
+    const csvContent = [headers, ...rows].join("\n");
+
+    // Download CSV file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "retirement_progress_ui_table.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }}
+  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
+>
+  <Download className="h-4 w-4" />
+  <span className="text-sm font-semibold">{t('common.export')}</span>
+</button>
+
                 </div>
               </div>
 
@@ -741,31 +851,28 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                 <nav className="flex space-x-8">
                   <button
                     onClick={() => setActiveTab('inProgress')}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                      activeTab === 'inProgress'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'inProgress'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
                   >
                     {t('retirementTracker.inProgress')} ({statusCounts.processing})
                   </button>
                   <button
                     onClick={() => setActiveTab('pending')}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                      activeTab === 'pending'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'pending'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
                   >
                     {t('retirementTracker.pending')} ({statusCounts.pending})
                   </button>
                   <button
                     onClick={() => setActiveTab('completed')}
-                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                      activeTab === 'completed'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'completed'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
                   >
                     {t('retirementTracker.completed')} ({statusCounts.completed})
                   </button>
@@ -777,6 +884,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
               <table className="w-full">
                 <thead className="bg-blue-50 border-b border-blue-200">
                   <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.shalarthId')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.sevarthId')}</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.employee')}</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.status')}</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('retirementTracker.dateOfBirthVerification')}</th>
@@ -809,14 +918,15 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                       return (
                         <tr
                           key={employee.id}
-                          className={`hover:bg-blue-50 ${
-                            employee.status === 'completed'
-                              ? 'bg-green-50 border-l-4 border-green-400'
-                              : employee.status === 'processing'
+                          className={`hover:bg-blue-50 ${employee.file_tracking_status === 'completed'
+                            ? 'bg-green-50 border-l-4 border-green-400'
+                            : employee.in_file_tracking
                               ? 'bg-yellow-50 border-l-4 border-yellow-400'
                               : ''
-                          }`}
+                            }`}
                         >
+                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium text-gray-500">{employee.Shalarth_Id || '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium text-gray-500">{employee.panchayatrajsevarth_id || '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
                               <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
@@ -826,32 +936,31 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                status === 'completed'
-                                  ? 'bg-green-100 text-green-800'
-                                  : status === 'processing'
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${status === 'completed'
+                                ? 'bg-green-100 text-green-800'
+                                : status === 'processing'
                                   ? 'bg-orange-100 text-orange-800'
                                   : 'bg-red-100 text-red-800'
-                              }`}
+                                }`}
                             >
                               {getStatusIcon(status)}
                               <span className="ml-1">{t(`retirementTracker.${status}`)}</span>
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.date_of_birth_verification)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.birth_certificate_doc_submitted)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.medical_certificate)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.nomination)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.permanent_registration)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.computer_exam_passed)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.marathi_hindi_exam_exemption)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.post_service_exam)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.appointed_employee)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.validity_certificate)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.verification_completed)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.has_undertaking_been_taken_on_21_12_2021)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.no_objection_no_inquiry_certificate)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">{getStatusIcon(employee.retirement_order)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.date_of_birth_verification || ''}>{getStatusIcon(employee.date_of_birth_verification)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.birth_certificate_doc_submitted || ''}>{getStatusIcon(employee.birth_certificate_doc_submitted)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.medical_certificate || ''}>{getStatusIcon(employee.medical_certificate)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.nomination || ''}>{getStatusIcon(employee.nomination)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.permanent_registration || ''}>{getStatusIcon(employee.permanent_registration)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.computer_exam_passed || ''}>{getStatusIcon(employee.computer_exam_passed)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.marathi_hindi_exam_exemption || ''}>{getStatusIcon(employee.marathi_hindi_exam_exemption)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.post_service_exam || ''}>{getStatusIcon(employee.post_service_exam)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.appointed_employee || ''}>{getStatusIcon(employee.appointed_employee)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.validity_certificate || ''}>{getStatusIcon(employee.validity_certificate)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.verification_completed || ''}>{getStatusIcon(employee.verification_completed)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.has_undertaking_been_taken_on_21_12_2021 || ''}>{getStatusIcon(employee.has_undertaking_been_taken_on_21_12_2021)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.no_objection_no_inquiry_certificate || ''}>{getStatusIcon(employee.no_objection_no_inquiry_certificate)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center" title={employee.retirement_order || ''}>{getStatusIcon(employee.retirement_order)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center space-x-2">
                               <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
@@ -1667,60 +1776,60 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     setShowViewModal(false);
   };
 
- const handleUpdateEmployee = async () => {
-  if (!editingEmployee) return;
+  const handleUpdateEmployee = async () => {
+    if (!editingEmployee) return;
 
-  setIsLoading(true);
-  try {
-    // Calculate the new status based on the updated data
-    const newStatus = getProgressStatus(editingEmployee);
+    setIsLoading(true);
+    try {
+      // Calculate the new status based on the updated data
+      const newStatus = getProgressStatus(editingEmployee);
 
-    const { error: progressError } = await ermsClient
-      .from('retirement_progress')
-      .update({
-        assigned_clerk: editingEmployee.assigned_clerk,
-        department: editingEmployee.department,
-        status: newStatus,
-        date_of_birth_verification: editingEmployee.date_of_birth_verification,
-        medical_certificate: editingEmployee.medical_certificate,
-        nomination: editingEmployee.nomination,
-        permanent_registration: editingEmployee.permanent_registration,
-        computer_exam_passed: editingEmployee.computer_exam_passed,
-        marathi_hindi_exam_exemption: editingEmployee.marathi_hindi_exam_exemption,
-        post_service_exam: editingEmployee.post_service_exam,
-        appointed_employee: editingEmployee.appointed_employee,
-        validity_certificate: editingEmployee.validity_certificate,
-        verification_completed: editingEmployee.verification_completed,
-        has_undertaking_been_taken_on_21_12_2021: editingEmployee.has_undertaking_been_taken_on_21_12_2021,
-        no_objection_no_inquiry_certificate: editingEmployee.no_objection_no_inquiry_certificate,
-        retirement_order: editingEmployee.retirement_order,
-        birth_certificate_doc_submitted: editingEmployee.birth_certificate_doc_submitted,
-        common_progress_comment: editingEmployee.common_progress_comment,
-        common_progress_date: editingEmployee.common_progress_date,
-        government_decision_march_31_2023: editingEmployee.government_decision_march_31_2023,
-      })
-      .eq('id', editingEmployee.id);
+      const { error: progressError } = await ermsClient
+        .from('retirement_progress')
+        .update({
+          assigned_clerk: editingEmployee.assigned_clerk,
+          department: editingEmployee.department,
+          status: newStatus,
+          date_of_birth_verification: editingEmployee.date_of_birth_verification,
+          medical_certificate: editingEmployee.medical_certificate,
+          nomination: editingEmployee.nomination,
+          permanent_registration: editingEmployee.permanent_registration,
+          computer_exam_passed: editingEmployee.computer_exam_passed,
+          marathi_hindi_exam_exemption: editingEmployee.marathi_hindi_exam_exemption,
+          post_service_exam: editingEmployee.post_service_exam,
+          appointed_employee: editingEmployee.appointed_employee,
+          validity_certificate: editingEmployee.validity_certificate,
+          verification_completed: editingEmployee.verification_completed,
+          has_undertaking_been_taken_on_21_12_2021: editingEmployee.has_undertaking_been_taken_on_21_12_2021,
+          no_objection_no_inquiry_certificate: editingEmployee.no_objection_no_inquiry_certificate,
+          retirement_order: editingEmployee.retirement_order,
+          birth_certificate_doc_submitted: editingEmployee.birth_certificate_doc_submitted,
+          common_progress_comment: editingEmployee.common_progress_comment,
+          common_progress_date: editingEmployee.common_progress_date,
+          government_decision_march_31_2023: editingEmployee.government_decision_march_31_2023,
+        })
+        .eq('id', editingEmployee.id);
 
-    const { error: employeeError } = await ermsClient
-      .from('employee_retirement')
-      .update({
-        retirement_progress_status: newStatus,
-      })
-      .eq('emp_id', editingEmployee.emp_id);
+      const { error: employeeError } = await ermsClient
+        .from('employee_retirement')
+        .update({
+          retirement_progress_status: newStatus,
+        })
+        .eq('emp_id', editingEmployee.emp_id);
 
-    // Handle errors from any call
-    if (progressError || employeeError) throw progressError || employeeError;
+      // Handle errors from any call
+      if (progressError || employeeError) throw progressError || employeeError;
 
-    await fetchRetirementProgress();
-    setShowEditModal(false);
-    setEditingEmployee(null);
-  } catch (error) {
-    console.error('Error updating employee:', error);
-    alert(t('common.error') + ': ' + (error.message || error));
-  } finally {
-    setIsLoading(false);
-  }
-};
+      await fetchRetirementProgress();
+      setShowEditModal(false);
+      setEditingEmployee(null);
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      alert(t('common.error') + ': ' + (error.message || error));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getStatusIcon = (status: string | null) => {
     if (!status || status.trim() === '') {
@@ -1826,7 +1935,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
 
   return (
     <div className="min-h-screen bg-gray-50">
-    {/* Header */}
+      {/* Header */}
       <div className="bg-white shadow-lg border-b border-gray-300 rounded-b-xl">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
@@ -1851,11 +1960,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
             <nav className="flex space-x-10 max-w-max">
               <button
                 onClick={() => setActiveMainTab('retirement')}
-                className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${
-                  activeMainTab === 'retirement'
-                    ? 'text-blue-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
-                    : 'text-gray-500 hover:text-blue-700'
-                }`}
+                className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${activeMainTab === 'retirement'
+                  ? 'text-blue-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
+                  : 'text-gray-500 hover:text-blue-700'
+                  }`}
                 style={{ borderTop: 'none' }}
               >
                 <div className="flex items-center space-x-2">
@@ -1865,11 +1973,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
               </button>
               <button
                 onClick={() => setActiveMainTab('payCommission')}
-                className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${
-                  activeMainTab === 'payCommission'
-                    ? 'text-indigo-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
-                    : 'text-gray-500 hover:text-indigo-700'
-                }`}
+                className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${activeMainTab === 'payCommission'
+                  ? 'text-indigo-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
+                  : 'text-gray-500 hover:text-indigo-700'
+                  }`}
                 style={{ borderTop: 'none' }}
               >
                 <div className="flex items-center space-x-2">
@@ -1879,11 +1986,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
               </button>
               <button
                 onClick={() => setActiveMainTab('groupInsurance')}
-                className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${
-                  activeMainTab === 'groupInsurance'
-                    ? 'text-blue-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
-                    : 'text-gray-500 hover:text-blue-700'
-                }`}
+                className={`relative py-2 px-4 font-semibold text-base transition-colors duration-300 rounded-t-md ${activeMainTab === 'groupInsurance'
+                  ? 'text-blue-700 border-b-4 border-blue-700 bg-indigo-50 shadow-sm'
+                  : 'text-gray-500 hover:text-blue-700'
+                  }`}
                 style={{ borderTop: 'none' }}
               >
                 <div className="flex items-center space-x-2">
@@ -1898,7 +2004,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
       {/* End of New changes to deploy */}
 
       {/* Main Tabs with bottom border only */}
-      <div className="p-6 mb-6"> 
+      <div className="p-6 mb-6">
 
         {/* Tab Content */}
         {renderMainTabContent()}

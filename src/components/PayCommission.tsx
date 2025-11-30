@@ -224,62 +224,96 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     }
   };
 
-  const fetchPayCommissionRecords = async () => {
-    try {
-      const { data, error } = await ermsClient
-        .from('pay_commission')
-        .select(`
-          id,
-          emp_id,
-          employee_name,
-          retirement_date,
-          assigned_clerk,
-          department,
-          age,
-          fourth_pay_comission,
-          fifth_pay_comission,
-          sixth_pay_comission,
-          seventh_pay_comission,
-          comments,
-          last_updated,
-          created_at,
-          updated_at,
-          fourth_pay_comission_comment,
-          fifth_pay_comission_comment,
-          sixth_pay_comission_comment,
-          seventh_pay_comission_comment,
-          pay_progress_scheme,
-          department_progress_scheme,
-          fourth_pay_comission_date,
-          fifth_pay_comission_date,
-          sixth_pay_comission_date,
-          seventh_pay_comission_date
-        `)
-        .order('employee_name');
+ const fetchPayCommissionRecords = async () => {
+  try {
+    const { data, error } = await ermsClient
+      .from('pay_commission')
+      .select(`
+        id,
+        emp_id,
+        employee_name,
+        retirement_date,
+        assigned_clerk,
+        department,
+        age,
+        fourth_pay_comission,
+        fifth_pay_comission,
+        sixth_pay_comission,
+        seventh_pay_comission,
+        comments,
+        last_updated,
+        created_at,
+        updated_at,
+        fourth_pay_comission_comment,
+        fifth_pay_comission_comment,
+        sixth_pay_comission_comment,
+        seventh_pay_comission_comment,
+        pay_progress_scheme,
+        department_progress_scheme,
+        fourth_pay_comission_date,
+        fifth_pay_comission_date,
+        sixth_pay_comission_date,
+        seventh_pay_comission_date
+      `)
+      .order('employee_name');
 
-      if (error) throw error;
+    if (error) throw error;
 
-      // Fetch file tracking status
-      const recordIds = data?.map(rec => rec.id) || [];
-      const { data: trackingData } = await ermsClient
-        .from('retirement_file_tracking')
-        .select('retirement_id, status')
-        .in('retirement_id', recordIds)
-        .in('status', ['assigned', 'completed']);
+    // 🔹 NEW: Fetch Panchayatraj & Shalarth IDs from employee table
+    const employeeIds = data?.map(x => x.emp_id) || [];
 
-      const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+    const { data: employeeData } = await ermsClient
+      .from('employee')
+      .select(`
+        emp_id,
+        panchayatrajsevarth_id,
+        Shalarth_Id
+      `)
+      .in('emp_id', employeeIds);
 
-      const recordsWithTracking = data?.map(rec => ({
+    const employeeMap = new Map(
+      (employeeData || []).map(e => [
+        e.emp_id,
+        {
+          panchayatrajsevarth_id: e.panchayatrajsevarth_id,
+          Shalarth_Id: e.Shalarth_Id
+        }
+      ])
+    );
+
+    // Fetch file tracking status
+    const recordIds = data?.map(rec => rec.id) || [];
+    const { data: trackingData } = await ermsClient
+      .from('retirement_file_tracking')
+      .select('retirement_id, status')
+      .in('retirement_id', recordIds)
+      .in('status', ['assigned', 'completed']);
+
+    const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+
+    // 🔹 Merge tracking + employee extra fields
+    const recordsWithTracking = data?.map(rec => {
+      const extraFields = employeeMap.get(rec.emp_id) || {
+        panchayatrajsevarth_id: null,
+        Shalarth_Id: null
+      };
+
+      return {
         ...rec,
         in_file_tracking: trackingMap.has(rec.id),
-        file_tracking_status: trackingMap.get(rec.id) || null
-      })) || [];
+        file_tracking_status: trackingMap.get(rec.id) || null,
 
-      setPayCommissionRecords(recordsWithTracking);
-    } catch (error) {
-      console.error('Error fetching pay commission records:', error);
-    }
-  };
+        // 🔹 NEW: Attached IDs
+        panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
+        Shalarth_Id: extraFields.Shalarth_Id
+      };
+    }) || [];
+
+    setPayCommissionRecords(recordsWithTracking);
+  } catch (error) {
+    console.error('Error fetching pay commission records:', error);
+  }
+};
 
   const fetchClerks = async () => {
     try {
@@ -347,7 +381,9 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
       filtered = filtered.filter(record =>
         String(record.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         String(record.employee_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(record.department || '').toLowerCase().includes(searchTerm.toLowerCase())
+        String(record.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(record.panchayatrajsevarth_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(record.Shalarth_Id || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -630,10 +666,66 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                 <RefreshCw className="h-4 w-4" />
                 <span className="text-sm">{t('erms.refresh')}</span>
               </button>
-              <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300">
-                <Download className="h-4 w-4" />
-                <span className="text-sm">{t('common.export')}</span>
-              </button>
+              <button
+  onClick={() => {
+    const data = getTabFilteredRecords(); // export UI-visible data
+
+    if (!data || data.length === 0) {
+      alert("No data available to export");
+      return;
+    }
+
+    // Only UI table columns (Pay Commission)
+    const uiColumns = [
+      "Shalarth_Id",
+      "panchayatrajsevarth_id",
+      "emp_id",
+      "employee_name",
+      "department",
+      "retirement_date",
+      "age",
+      "assigned_clerk",
+      "fourth_pay_comission",
+      "fifth_pay_comission",
+      "sixth_pay_comission",
+      "seventh_pay_comission",
+      "pay_progress_scheme",
+      "department_progress_scheme"
+    ];
+
+    const headers = uiColumns.join(",");
+
+    const rows = data.map(row =>
+      uiColumns
+        .map(key => {
+          let value = row[key];
+
+          // Format date same as UI
+          if (key === "retirement_date" && value) {
+            value = new Date(value).toLocaleDateString();
+          }
+
+          return `"${value !== null && value !== undefined ? value : ''}"`;
+        })
+        .join(",")
+    );
+
+    const csvContent = [headers, ...rows].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "pay_commission_ui_table.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }}
+  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
+>
+  <Download className="h-4 w-4" />
+  <span className="text-sm">{t('common.export')}</span>
+</button>
+
             </div>
           </div>
 
@@ -734,6 +826,8 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
           <table className="w-full table-auto border-collapse">
             <thead className="bg-blue-50 border-b border-blue-200">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.shalarthId')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.sevarthId')}</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.employee')}</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">{t('retirementTracker.department')}</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider select-none whitespace-nowrap">Retirement Date</th>
@@ -769,6 +863,8 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                           : ''
                       }`}
                     >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.Shalarth_Id || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.panchayatrajsevarth_id || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{record.employee_name}</div>
@@ -777,24 +873,24 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.department || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.retirement_date ? new Date(record.retirement_date).toLocaleDateString() : '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.age || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.assigned_clerk || t('erms.unassigned')}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>
+                      <td className="px-6 py-4 whitespace-nowrap" title={record.fourth_pay_comission ? 'Yes' : 'No'}>
                         <span className="text-green-600 text-lg">{record.fourth_pay_comission ? '✓' : '○'}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap" title={record.fifth_pay_comission ? 'Yes' : 'No'}>
                         <span className="text-green-600 text-lg">{record.fifth_pay_comission ? '✓' : '○'}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap" title={record.sixth_pay_comission ? 'Yes' : 'No'}>
                         <span className="text-green-600 text-lg">{record.sixth_pay_comission ? '✓' : '○'}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap" title={record.seventh_pay_comission ? 'Yes' : 'No'}>
                         <span className="text-green-600 text-lg">{record.seventh_pay_comission ? '✓' : '○'}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap" title={record.pay_progress_scheme || ''}>
                         <span className="text-green-600 text-lg">{getStatusIcon(record.pay_progress_scheme)}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap" title={record.department_progress_scheme || ''}>
                         <span className="text-green-600 text-lg">{getStatusIcon(record.department_progress_scheme)}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

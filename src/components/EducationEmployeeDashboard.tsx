@@ -213,7 +213,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     }
   };
 
- // Function to calculate retirement date based on date of birth and Cadre
+  // Function to calculate retirement date based on date of birth and Cadre
   const calculateRetirementDate = (dateOfBirth: string, Cadre: string) => {
 
     if (!Cadre) return null;
@@ -546,7 +546,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
       filtered = filtered.filter(emp =>
         String(emp.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.employee_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.department?.toLowerCase().includes(searchTerm.toLowerCase())
+        emp.Shalarth_Id?.toLowerCase().includes(searchTerm.toLowerCase()) 
       );
     }
 
@@ -619,94 +619,94 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     setEditingEmployee(employee);
     setShowEditModal(true);
   };
-const handleSaveEmployee = async () => {
+  const handleSaveEmployee = async () => {
 
-  if (!formData.emp_id || !formData.employee_name || !formData.designation_id) {
-    alert(t('erms.fillAllFields'));
-    return;
-  }
-
-  if (!educationDeptId) {
-    alert('Education department ID not found');
-    return;
-  }
-
-  // Define calculateAge only once
-  const calculateAge = (dateOfBirth: string) => {
-    if (!dateOfBirth) return null;
-    const birthDate = new Date(dateOfBirth);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
+    if (!formData.emp_id || !formData.employee_name || !formData.designation_id) {
+      alert(t('erms.fillAllFields'));
+      return;
     }
-    return age;
-  };
 
-  setIsLoading(true);
-  try {
-    // Calculate age from date of birth
-    const calculatedAge = calculateAge(formData.date_of_birth);
+    if (!educationDeptId) {
+      alert('Education department ID not found');
+      return;
+    }
 
-    // Calculate retirement date based on cadre
-    const calculatedRetirementDate = formData.Cadre
-      ? calculateRetirementDate(formData.date_of_birth, formData.Cadre)
-      : null;
-
-    // Prepare employee data
-    const employeeData = {
-      emp_id: String(formData.emp_id || '').trim() || null,
-      employee_name: String(formData.employee_name || '').trim(),
-      employee_name_en: formData.employee_name_en ? String(formData.employee_name_en).trim() : null,
-      date_of_birth: formData.date_of_birth,
-      Cadre: 'C', // Always set to C
-      retirement_date: calculatedRetirementDate,
-      age: calculatedAge,
-      designation_id: formData.designation_id,
-      assigned_clerk: formData.assigned_clerk || null,
-      tal_id: formData.tal_id,
-      dept_id: educationDeptId,
-      office_id: formData.office_id,
-      date_of_joining: formData.date_of_joining || null,
-      Shalarth_Id: formData.Shalarth_Id,
-      cast_category: formData.cast_category,
-      appointment_caste_category: formData.appointment_caste_category,
-      teacher_type: formData.teacher_type,
-      teacher_is_active: formData.teacher_is_active,
-      gender: formData.gender,
-      updated_at: new Date().toISOString()
+    // Define calculateAge only once
+    const calculateAge = (dateOfBirth: string) => {
+      if (!dateOfBirth) return null;
+      const birthDate = new Date(dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age;
     };
 
-    if (editingEmployee) {
-      const { error } = await ermsClient
-        .from('employee')
-        .update(employeeData)
-        .eq('emp_id', editingEmployee.emp_id);
+    setIsLoading(true);
+    try {
+      // Calculate age from date of birth
+      const calculatedAge = calculateAge(formData.date_of_birth);
 
-      if (error) throw error;
-    } else {
-      const { error } = await ermsClient
-        .from('employee')
-        .insert({
-          ...employeeData,
-          created_at: new Date().toISOString()
-        });
+      // Calculate retirement date based on cadre
+      const calculatedRetirementDate = formData.Cadre
+        ? calculateRetirementDate(formData.date_of_birth, formData.Cadre)
+        : null;
 
-      if (error) throw error;
+      // Prepare employee data
+      const employeeData = {
+        emp_id: String(formData.emp_id || '').trim() || null,
+        employee_name: String(formData.employee_name || '').trim(),
+        employee_name_en: formData.employee_name_en ? String(formData.employee_name_en).trim() : null,
+        date_of_birth: formData.date_of_birth,
+        Cadre: 'C', // Always set to C
+        retirement_date: calculatedRetirementDate,
+        age: calculatedAge,
+        designation_id: formData.designation_id,
+        assigned_clerk: formData.assigned_clerk || null,
+        tal_id: formData.tal_id,
+        dept_id: educationDeptId,
+        office_id: formData.office_id,
+        date_of_joining: formData.date_of_joining || null,
+        Shalarth_Id: formData.Shalarth_Id,
+        cast_category: formData.cast_category,
+        appointment_caste_category: formData.appointment_caste_category,
+        teacher_type: formData.teacher_type,
+        teacher_is_active: formData.teacher_is_active,
+        gender: formData.gender,
+        updated_at: new Date().toISOString()
+      };
+
+      if (editingEmployee) {
+        const { error } = await ermsClient
+          .from('employee')
+          .update(employeeData)
+          .eq('emp_id', editingEmployee.emp_id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await ermsClient
+          .from('employee')
+          .insert({
+            ...employeeData,
+            created_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+      }
+
+      await fetchEmployees();
+      setShowAddModal(false);
+      setShowEditModal(false);
+      setFormData({ Cadre: 'C' });
+    } catch (error) {
+      console.error('Error saving employee:', error);
+      alert(t('common.error') + ': ' + error.message);
+    } finally {
+      setIsLoading(false);
     }
-
-    await fetchEmployees();
-    setShowAddModal(false);
-    setShowEditModal(false);
-    setFormData({ Cadre: 'C' });
-  } catch (error) {
-    console.error('Error saving employee:', error);
-    alert(t('common.error') + ': ' + error.message);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
 
   const handleDeleteEmployee = async (employee: EducationEmployee) => {
@@ -901,12 +901,12 @@ const handleSaveEmployee = async () => {
           <table className="w-full">
             <thead className="bg-blue-50 border-b border-blue-200">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.shalarthId')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.employee')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">English Name</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">Gender</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.gender')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.designation')}</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">Shalarth ID</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">Teacher Type</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.teacherType')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.age')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.retirementDate')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.assignedClerk')}</th>
@@ -923,6 +923,9 @@ const handleSaveEmployee = async () => {
               ) : (
                 paginatedEmployees.map((employee) => (
                   <tr key={employee.emp_id} className="hover:bg-blue-50 transition-colors duration-200">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {employee.Shalarth_Id || '-'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
@@ -937,9 +940,6 @@ const handleSaveEmployee = async () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {designations.find(d => d.designation_id === employee.designation_id)?.designation || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {employee.Shalarth_Id || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {employee.teacher_type || '-'}
