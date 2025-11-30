@@ -44,7 +44,10 @@
     "passwordTooShort": "Password must be at least 6 characters long",
     "fillAllFields": "Please fill in all fields",
     "newPassword":"Please type new password",
-    "confirmPassword":"Confirm New password"
+    "confirmPassword":"Confirm New password",
+    "enterNewpassword":"Please type new password",
+    "confirmNewPassword":"Confirm New password"
+    
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -61,7 +64,8 @@
     "quickActions": "Quick Actions",
     "recentActivity": "Recent Activity",
     "systemStatus": "System Status",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "applicationsHeading": "Integrated Applications System Overview"
   },
   "systems": {
     "erms": {
@@ -104,7 +108,7 @@
       "mobileApplication": "Mobile Application"
     },
     "pesa": {
-      "name": "PESA 5%",
+      "name": "PESA",
       "fullName": "PESA 5% Fund Management System",
       "description": "Track and manage PESA fund utilization across components",
       "totalFund": "Total Fund",
@@ -149,6 +153,7 @@
     "designationId": "Designation ID",
     "designationName": "Designation Name",
     "addDesignation": "Add Designation",
+    "selectTypeOfPension": "Select Type of Pension",
     "talukas": "Talukas",
     "taluka": "Taluka",
     "talukaId": "Taluka ID",
@@ -182,6 +187,7 @@
     "selectAppointmentCastCategory": "Select Appointment Cast Category",
     "selectTeacherType": "Select Teacher Type",
     "employeeDashboardDesc": "View employee statistics and manage records",
+    "retirementDashboard": "Retirement Dashboard",
     "retirementDashboardDesc": "Manage retirement processes and benefits",
     "retirementTracker": "Retirement Tracker",
     "retirementTrackerDesc": "Track retirement progress, pay commission and insurance",
@@ -229,7 +235,7 @@
     "age": "Age",
     "retirementDate": "Retirement Date",
     "assignedClerk": "Assigned Clerk",
-    "assignedOfficer": "Assigned Officer",
+     "assignedOfficer": "Assigned Officer",
     "unassigned": "Unassigned",
     "clearFilters": "Clear Filters",
     "searchEmployees": "Search employees...",
@@ -330,7 +336,6 @@
     "assignedClerkName": "Assigned Clerk Name",
     "dateOfAssignment": "Date of Assignment",
     "selectDesignation": "Select Designation",
-    "selectTypeOfPension": "Select Type of Pension",
     "selectTaluka": "Select Taluka",
     "panchayatrajsevarthId": "PANCHAYATRAJSEVARTH ID",
     "sevarthId": "Sevarth ID",
@@ -361,7 +366,7 @@
     "enterAge": "Enter age",
     "enterClerkName": "Enter clerk name",
     "selectClerk": "Select Clerk",
-    "selectOfficer": "Select Officer",
+     "selectOfficer": "Select Officer",
     "retirementReason": "Retirement Reason",
     "selectReason": "Select Reason",
     "enterDepartmentId": "Enter department ID",
@@ -463,9 +468,10 @@
     "department": "Department",
     "designation": "Designation",
     "selectStatus": "Select Status",
-    "overallComment": "Overall Comment",
     "comment": "Comment",
+    "withSubmissionData": "With submission data",
     "date": "Date",
+    "overallComment": "Overall Comment",
     "enterOverallComment": "Enter overall comment",
     "showingPage": "Showing {{start}}-{{end}} of {{total}}"
   },

@@ -43,7 +43,9 @@
     "passwordTooShort": "पासवर्ड किमान 6 अक्षरांचा असावा",
     "fillAllFields": "कृपया सर्व फील्ड भरा",
     "newPassword": "कृपया नवीन पासवर्ड टाइप करा",
-    "confirmPassword": "नवीन पासवर्डची पुष्टी करा"
+    "confirmPassword": "नवीन पासवर्डची पुष्टी करा",
+    "enterNewpassword":"कृपया नवीन पासवर्ड टाइप करा",
+    "confirmNewPassword": "नवीन पासवर्डची पुष्टी करा"
 
   },
   "navigation": {
@@ -54,19 +56,20 @@
     "language": "भाषा"
   },
   "dashboard": {
-    "title": "जिल्हा परिषद चंद्रपूर",
-    "subtitle": "एकात्मिक अनुप्रयोग प्रणाली",
-    "welcome": "स्वागत",
-    "overview": "प्रणाली विहंगावलोकन",
-    "quickActions": "त्वरित क्रिया",
-    "recentActivity": "अलीकडील क्रियाकलाप",
+  "title": "जिल्हा परिषद चंद्रपूर",
+  "subtitle": "एकत्रित अँप प्रणाली",
+  "welcome": "स्वागत",
+  "overview": "आढावा",
+  "quickActions": "त्वरित क्रिया",
+    "recentActivity": "अलीकडील कामकाज",
     "systemStatus": "प्रणाली स्थिती",
-    "notifications": "सूचना"
+    "notifications": "सूचना",
+    "applicationsHeading": "एकात्मिक अनुप्रयोग प्रणाली"
   },
   "systems": {
     "erms": {
       "name": "ERMS",
-      "fullName": "कर्मचारी सेवानिवृत्ती व्यवस्थापन प्रणाली",
+      "fullName": "कर्मचारी सेवानिवृत्ती व्यवस्थापन",
       "description": "कर्मचारी सेवानिवृत्ती प्रक्रिया आणि दस्तऐवजीकरण व्यवस्थापित करा",
       "totalEmployees": "एकूण कर्मचारी",
       "upcomingRetirements": "आगामी सेवानिवृत्ती",
@@ -92,7 +95,7 @@
     },
     "fims": {
       "name": "FIMS",
-      "fullName": "क्षेत्रीय तपासणी व्यवस्थापन प्रणाली",
+      "fullName": "क्षेत्रीय तपासणी व्यवस्थापन",
       "description": "फोटो दस्तऐवजीकरणासह क्षेत्रीय तपासणी आयोजित आणि व्यवस्थापित करा",
       "monthlyTarget": "मासिक लक्ष्य",
       "completed": "पूर्ण",
@@ -104,7 +107,7 @@
       "mobileApplication": "मोबाइल अनुप्रयोग"
     },
     "pesa": {
-      "name": "PESA 5%",
+      "name": "PESA",
       "fullName": "PESA 5% निधी व्यवस्थापन प्रणाली",
       "description": "घटकांमध्ये PESA निधी वापराचा मागोवा आणि व्यवस्थापन करा",
       "totalFund": "एकूण निधी",
@@ -139,9 +142,12 @@
     "organizationSetup": "संस्था सेटअप",
     "organizationSetupDesc": "संस्थात्मक रचना आणि मास्टर डेटा व्यवस्थापित करा",
     "retirementDashboard": "सेवानिवृत्ती डॅशबोर्ड",
-    "interactiveClerkView": "परस्परसंवादी लिपिक दृश्य",
+    "interactiveClerkView": "लिपिक दृश्य",
     "unknownClerk": "अज्ञात लिपिक",
-    "globalAdministrativeView": "जागतिक प्रशासकीय दृश्य",
+    "globalAdministrativeView": "प्रशासकीय दृश्य",
+     "selectDesignation": "पदनाम निवडा",
+    "selectDesignation": "पदनाम निवडा", 
+    "selectTypeOfPension": "पेन्शन प्रकार निवडा",
     "allClerksGlobalView": "सर्व लिपिक (जागतिक दृश्य)",
     "totalRetirements": "एकूण सेवानिवृत्ती",
     "processing": "प्रक्रिया",
@@ -167,8 +173,6 @@
     "showing6MonthsCentered": "{{month}} {{year}} च्या आसपास केंद्रित 6 महिने दाखवत आहे",
     "designationVsEmployeeCount": "पदनाम विरुद्ध कर्मचारी संख्या",
     "retirementProgressTracker": "सेवानिवृत्ती प्रगती ट्रॅकर",
-    "status": "स्थिती",
-    "progress": "प्रगती",
     "gender": "लिंग",
     "employeeNameEnglish": "कर्मचारी नाव(इंग्रजी)",
     "shalarthId": "शालार्थ आयडी",
@@ -181,6 +185,8 @@
     "placeholderShalarthId": "शलार्थ आयडी टाका",
     "selectAppointmentCastCategory": "नियुक्ती जात श्रेणी निवडा",
     "selectTeacherType": "शिक्षक प्रकार निवडा",
+    "status": "स्थिती",
+    "progress": "प्रगती",
     "loadingRetirementData": "सेवानिवृत्ती डेटा लोड करत आहे...",
     "noRetirementRecordsFound": "कोणतेही सेवानिवृत्ती रेकॉर्ड सापडले नाहीत.",
     "inProgressAndPending": "प्रगतीत आणि प्रलंबित",
@@ -320,7 +326,7 @@
     "panchayatrajsevarthId": "पंचायतराजसेवार्थ आयडी",
     "sevarthId": "सेवार्थ आयडी",
     "ddoCode": "डीडीओ कोड",
-    "cadre": "संवर्ग",
+    "Cadre": "संवर्ग",
     "postName": "पदाचे नाव",
     "appointingDepartment": "नियुक्ती करणारा विभाग",
     "workingOfficeName": "कार्यरत कार्यालयाचे नावे",
@@ -339,8 +345,7 @@
     "allClerks": "सर्व लिपिक",
     "allReasons": "सर्व कारणे",
     "selectDepartment": "विभाग निवडा",
-    "selectDesignation": "पदनाम निवडा", 
-    "selectTypeOfPension": "पेन्शन प्रकार निवडा",
+    "selectDesignation": "पदनाम निवडा",
     "enterDesignation": "पदनाम टाका",
     "selectTaluka": "तालुका निवडा",
     "selectOffice": "कार्यालय निवडा",
@@ -393,9 +398,12 @@
     "retirementProgress": "सेवानिवृत्ती प्रगती",
     "payCommission": "वेतन आयोग",
     "groupInsurance": "गट विमा",
-    "processOverview": "सेवानिवृत्ती प्रक्रिया विहंगावलोकन",
+    "processOverview": "सेवानिवृत्ती प्रक्रिया",
+    "pensionApproved": "पेन्शन मंजूर",
     "complete": "पूर्ण",
     "totalCases": "एकूण प्रकरणे",
+    "awaitingApproval": "मंजुरीची प्रतीक्षा",
+    "withSubmissionData": "सबमिशन डेटासह",
     "completed": "पूर्ण",
     "inProgress": "प्रगतीत",
     "pending": "प्रलंबित",
@@ -463,8 +471,8 @@
     "notFound": "पृष्ठ सापडले नाही"
   },
   "customReports": {
-    "title": "सानुकूल अहवाल",
-    "subtitle": "आपल्या डेटावरून परस्परसंवादी अहवाल आणि विश्लेषण तयार करा",
+    "title": "कर्मचारी अहवाल",
+    "subtitle": "आपल्या डेटावरून अहवाल आणि विश्लेषण तयार करा",
     "createReport": "अहवाल तयार करा",
     "savedTemplates": "जतन केलेले टेम्प्लेट्स",
     "results": "परिणाम",
@@ -520,7 +528,7 @@
     "year2020": "2020 वर्ष"
   },
   "fims": {
-    "title": "क्षेत्रीय तपासणी व्यवस्थापन प्रणाली",
+    "title": "क्षेत्रीय तपासणी व्यवस्थापन",
     "subtitle": "फोटो दस्तऐवजीकरणासह क्षेत्रीय तपासणी आयोजित आणि व्यवस्थापित करा",
     "dashboard": "डॅशबोर्ड",
     "inspections": "तपासणी",
