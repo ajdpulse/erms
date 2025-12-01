@@ -799,7 +799,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     setShowEditModal(true);
   };
 
-  const handleSaveEmployee = async () => {
+  const handleSaveEmployee = async () => {debugger
     if (!formData.emp_id || !formData.employee_name || !formData.date_of_birth) {
       alert('Employee ID, name, and date of birth are required');
       return;
@@ -867,6 +867,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         designation_id: formData.designation_id,
         reason: String(formData.reason || '').trim() || null,
         assigned_clerk: formData.assigned_clerk || null,
+        officer_assigned: formData.officer_assigned || null,
         tal_id: formData.tal_id,
         dept_id: formData.dept_id,
         office_id: formData.office_id,
@@ -890,14 +891,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
           .from('employee')
           .update(employeeData)
           .eq('emp_id', editingEmployee.emp_id);
-        if (error) throw error;
-
-        await ermsClient
-          .from('retirement_progress')
-          .update({
-            officer_assigned: formData.officer_assigned || null
-          })
-          .eq('emp_id', editingEmployee.emp_id);
+        if (error) throw error;   
 
         // Show success message for update
         alert(t('common.success') + ': Employee updated successfully');

@@ -248,6 +248,7 @@ const fetchGroupInsuranceRecords = async () => {
         employee_name,
         retirement_date,
         assigned_clerk,
+        officer_assigned,
         department,
         age,
         year_1990,
@@ -317,6 +318,14 @@ const fetchGroupInsuranceRecords = async () => {
       trackingData?.map(t => [t.retirement_id, t.status]) || []
     );
 
+     // 3️⃣ Fetch officer_assigned from retirement_progress table
+              const { data: progressData, error: progressError } = await ermsClient
+                .from('retirement_progress')
+                .select('emp_id, officer_assigned')
+                .in('emp_id', employeeIds);
+        
+              if (progressError) throw progressError;
+
     // 🔹 Merge extra employee fields + correct tracking
     const recordsWithTracking = data?.map(rec => {
       const extraFields = employeeMap.get(rec.emp_id) || {
@@ -383,6 +392,10 @@ const fetchGroupInsuranceRecords = async () => {
     // Role-based filtering
     if (userRole === 'clerk' && userProfile?.name) {
       filtered = filtered.filter(record => record.assigned_clerk === userProfile.name);
+    }
+
+     if (userRole === 'officer') {
+      filtered = filtered.filter(emp => emp.officer_assigned === user.id);
     }
 
     // Clerk filter (for non-clerk users)

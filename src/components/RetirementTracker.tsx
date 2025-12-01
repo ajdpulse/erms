@@ -359,6 +359,7 @@ const fetchRetirementProgress = async () => {
         employee_name,
         age,
         assigned_clerk,
+        officer_assigned,
         department,
         status,
         date_of_birth_verification,
@@ -428,6 +429,14 @@ const fetchRetirementProgress = async () => {
       .in('status', ['assigned', 'completed']);
 
     const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+
+     // 3️⃣ Fetch officer_assigned from retirement_progress table
+          const { data: progressData, error: progressError } = await ermsClient
+            .from('retirement_progress')
+            .select('emp_id, officer_assigned')
+            .in('emp_id', employeeIds);
+    
+          if (progressError) throw progressError;
 
     // 🔥 Merge data
     const employeesWithUpdatedStatus = await Promise.all(
@@ -517,13 +526,17 @@ const fetchRetirementProgress = async () => {
     }
   };
 
-  const filterEmployees = () => {
+  const filterEmployees = () => {debugger
     let filtered = retirementProgress;
 
     // Role-based filtering
     if (userRole === 'clerk' && userProfile?.name) {
       // Clerk can only see their assigned employees
       filtered = filtered.filter(emp => emp.assigned_clerk === userProfile.name);
+    }
+
+     if (userRole === 'officer') {
+      filtered = filtered.filter(emp => emp.officer_assigned === user.id);
     }
 
     // Search filter
@@ -650,7 +663,7 @@ const fetchRetirementProgress = async () => {
           </div>
         </div> */}
 
-        <div className="p-6 bg-indigo-50 rounded-b-xl shadow-inner">
+        <div className="rounded-b-xl shadow-inner">
           {/* KPI Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">

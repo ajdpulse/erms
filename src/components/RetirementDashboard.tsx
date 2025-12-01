@@ -143,6 +143,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
   const [officers, setOfficers] = useState<ClerkData[]>([]);
   const [currentPage, setCurrentPage] = useState(initialState.currentPage);
   const [employeesPerPage] = useState(10);
+  const [filterType, setFilterType] = useState<string>('');
 
   const [persistenceEnabled, setPersistenceEnabled] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -339,6 +340,18 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
   }, [filteredEmployees]);
+
+  // ➕ ADD THIS FUNCTION (same as EmployeeDashboard)
+  // const calculateUpcomingRetirements = () => {
+  //   const sixMonthsFromNow = new Date();
+  //   sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+
+  //   return retirementEmployees.filter(emp => {
+  //     if (!emp.retirement_date) return false;
+  //     const date = new Date(emp.retirement_date);
+  //     return date <= sixMonthsFromNow;
+  //   }).length;
+  // };
 
   // Helper function to calculate retirement progress status
   const calculateRetirementProgressStatus = (record: any) => {
@@ -1047,6 +1060,27 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
               </div>
             </div>
           </div>
+
+          {/* <div
+            className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+            onClick={() => {
+              setFilterType('upcomingRetirements');
+              setTimeout(() => { }, 0);
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">
+                  {t('erms.upcomingRetirements')}
+                </p>
+                <p className="text-2xl font-extrabold text-orange-800">{calculateUpcomingRetirements()}</p>
+                <p className="text-xs text-orange-600 font-medium">{t('erms.nextSixMonths')}</p>
+              </div>
+              <div className="bg-gradient-to-tr from-orange-500 to-yellow-500 p-3 rounded-2xl shadow-md">
+                <Calendar className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          </div> */}
 
           <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between">

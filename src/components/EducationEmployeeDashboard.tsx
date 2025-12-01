@@ -32,6 +32,7 @@ interface EducationEmployee {
   gender?: string;
   age: number | null;
   date_of_birth: string | null;
+  officer_assigned: string | null;
   dept_id: string;
   designation: string;
   designation_id: string;
@@ -102,6 +103,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         return {
           searchTerm: parsed.searchTerm || '',
           selectedDepartment: parsed.selectedDepartment || '',
+          selectedDesignation: parsed.selectedDesignation || '',
           selectedClerk: parsed.selectedClerk || '',
           selectedReason: parsed.selectedReason || ''
         };
@@ -112,6 +114,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     return {
       searchTerm: '',
       selectedDepartment: '',
+      selectedDesignation: '',
       selectedClerk: '',
       selectedReason: ''
     };
@@ -159,6 +162,18 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     };
   };
 
+  // 🔥 ADDED – Load form data from localStorage
+  const getInitialFormData = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.FORM_DATA);
+      if (saved) return JSON.parse(saved);
+    } catch (err) {
+      console.warn("Failed to load form data:", err);
+    }
+    return { Cadre: "C", date_of_joining: "" };
+  };
+
+
   const [employees, setEmployees] = useState<EducationEmployee[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<EducationEmployee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -167,6 +182,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
   const [offices, setOffices] = useState<Office[]>([]);
   const [clerks, setClerks] = useState<ClerkData[]>([]);
   const [educationDeptId, setEducationDeptId] = useState<string>('');
+  const [officers, setOfficers] = useState<ClerkData[]>([]);
 
   // Initialize state with persisted values
   const initialFilters = getInitialFilters();
@@ -182,6 +198,8 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [recordsPerPage] = useState(initialPagination.recordsPerPage);
   const [filterType, setFilterType] = useState<string>('');
+  const [selectedDesignation, setSelectedDesignation] = useState('');
+
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(initialModalState.showAddModal);
@@ -189,10 +207,9 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
   const [editingEmployee, setEditingEmployee] = useState<EducationEmployee | null>(initialModalState.editingEmployee);
 
   // Form data
-  const [formData, setFormData] = useState<Partial<EducationEmployee>>({
-    Cadre: 'C',
-    date_of_joining: ''
-  });
+  // 🔥 ADDED – persistent form data initialization
+  const [formData, setFormData] = useState<Partial<EducationEmployee>>(getInitialFormData());
+
 
   const [persistenceEnabled, setPersistenceEnabled] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -203,6 +220,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
       const filterState = {
         searchTerm,
         selectedDepartment,
+        selectedDesignation,
         selectedClerk,
         selectedReason,
         timestamp: Date.now()
@@ -310,8 +328,12 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
           showEditModal,
           editingEmployee
         });
+
+        // 🔥 ADDED
+        localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(formData));
       }
     };
+
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.MODAL_STATE && persistenceEnabled) {
@@ -345,12 +367,23 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     };
   }, []);
 
+  // 🔥 ADDED – auto save form data on change
+  useEffect(() => {
+    if (isInitialized) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(formData));
+      } catch (err) {
+        console.warn("Failed to save form data:", err);
+      }
+    }
+  }, [formData, isInitialized]);
+
   // Auto-save filters when they change
   useEffect(() => {
     if (isInitialized) {
       saveFilters();
     }
-  }, [searchTerm, selectedDepartment, selectedClerk, selectedReason, isInitialized]);
+  }, [searchTerm, selectedDepartment, selectedClerk, selectedReason, selectedDesignation, isInitialized]);
 
   // Auto-save pagination when it changes
   useEffect(() => {
@@ -379,7 +412,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
   useEffect(() => {
     filterEmployees();
     setCurrentPage(1);
-  }, [employees, searchTerm, selectedDepartment, selectedClerk, selectedReason, filterType]);
+  }, [employees, searchTerm, selectedDepartment, selectedClerk, selectedReason, selectedDesignation, filterType]);
 
   const fetchAllData = async () => {
     setIsLoading(true);
@@ -392,12 +425,39 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         fetchDesignations(),
         fetchTalukas(),
         fetchOffices(),
-        fetchClerks()
+        fetchClerks(),
+        fetchOfficers()
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchOfficers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select(`
+            user_id,
+            name,
+            roles!inner(name)
+          `)
+        .eq('roles.name', 'officer')
+        .not('name', 'is', null);
+
+      if (error) throw error;
+
+      const officersData = data?.map(officer => ({
+        user_id: officer.user_id,
+        name: officer.name,
+        role_name: officer.roles?.name || 'officer'
+      })) || [];
+
+      setOfficers(officersData);
+    } catch (error) {
+      console.error('Error fetching officers:', error);
     }
   };
 
@@ -546,15 +606,22 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
       filtered = filtered.filter(emp =>
         String(emp.emp_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.employee_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.Shalarth_Id?.toLowerCase().includes(searchTerm.toLowerCase()) 
+        emp.Shalarth_Id?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
+    // New Department Filter
+    if (selectedDepartment) {
+      filtered = filtered.filter(emp => String(emp.dept_id) === selectedDepartment);
+    }
+
+    // New Designation Filter
+    if (selectedDesignation) {
+      filtered = filtered.filter(emp => String(emp.designation_id) === selectedDesignation);
+    }
+
     if (selectedClerk) {
-      const selectedClerkName = clerks.find(c => c.user_id === selectedClerk)?.name;
-      if (selectedClerkName) {
-        filtered = filtered.filter(emp => emp.assigned_clerk === selectedClerkName);
-      }
+      filtered = filtered.filter(emp => emp.assigned_clerk === selectedClerk);
     }
 
     if (selectedReason) {
@@ -576,6 +643,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     }
 
     setFilteredEmployees(filtered);
+    setCurrentPage(1); // Ensure pagination resets, same as EmployeeDashboard
   };
 
   // Pagination logic
@@ -665,6 +733,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         age: calculatedAge,
         designation_id: formData.designation_id,
         assigned_clerk: formData.assigned_clerk || null,
+        officer_assigned: formData.officer_assigned || null,
         tal_id: formData.tal_id,
         dept_id: educationDeptId,
         office_id: formData.office_id,
@@ -685,6 +754,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
           .eq('emp_id', editingEmployee.emp_id);
 
         if (error) throw error;
+        alert(t('common.success') + ': Employee updated successfully');
       } else {
         const { error } = await ermsClient
           .from('employee')
@@ -732,6 +802,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedDepartment('');
+    setSelectedDesignation('');
     setSelectedClerk('');
     setCurrentPage(1);
     setSelectedReason('');
@@ -851,7 +922,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
           </div>
 
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-5 mt-5">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -877,6 +948,30 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
             </select>
 
             <select
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">सर्व विभाग</option>
+              {departments.map(dept => (
+                <option key={dept.dept_id} value={dept.dept_id}>
+                  {dept.department}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedDesignation}
+              onChange={(e) => setSelectedDesignation(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">{t('erms.selectDesignation')}</option>
+              {designations.map(designation => (
+                <option key={designation.designation_id} value={String(designation.designation_id)}>{designation.designation}</option>
+              ))}
+            </select>
+
+            {/* <select
               value={selectedReason}
               onChange={(e) => setSelectedReason(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -885,7 +980,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
               <option value="मृत्यू झाल्याने">मृत्यू झाल्याने</option>
               <option value="नियत वयोमान">नियत वयोमान</option>
               <option value="स्वेच्छा सेवा निवृत्ती">स्वेच्छा सेवा निवृत्ती</option>
-            </select>
+            </select> */}
 
             <button
               onClick={clearFilters}
@@ -903,11 +998,12 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.shalarthId')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.employee')}</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">English Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.gender')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.designation')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.teacherType')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.age')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.department')}</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.officeLocation')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.retirementDate')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.assignedClerk')}</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">{t('erms.actions')}</th>
@@ -921,40 +1017,55 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                   </td>
                 </tr>
               ) : (
-                paginatedEmployees.map((employee) => (
+                getPaginatedEmployees().map(employee => (
                   <tr key={employee.emp_id} className="hover:bg-blue-50 transition-colors duration-200">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {employee.Shalarth_Id || '-'}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">{employee.employee_name}</div>
                         <div className="text-sm text-gray-500">{employee.emp_id}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {employee.employee_name_en || '-'}
-                    </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {employee.gender || '-'}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {designations.find(d => d.designation_id === employee.designation_id)?.designation || '-'}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {employee.teacher_type || '-'}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {employee.age || '-'}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {employee.retirement_date ? new Date(employee.retirement_date).toLocaleDateString() : '-'}
+                      {departments.find(d => d.dept_id === employee.dept_id)?.department || '-'}
                     </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {offices.find(o => o.office_id === employee.office_id)?.name || '-'}
+                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {employee.retirement_date
+                        ? new Date(employee.retirement_date).toLocaleDateString()
+                        : '-'}
+                    </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {employee.assigned_clerk
                         ? clerks.find(c => c.user_id === employee.assigned_clerk)?.name || t('erms.unassigned')
                         : t('erms.unassigned')}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
@@ -1092,13 +1203,13 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.gender')}</label>
                   <select
                     value={formData.gender || ''}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Select Gender</option>
+                    <option value="">{t('erms.selectGender')}</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
@@ -1106,24 +1217,24 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Shalarth ID</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.shalarthId')}</label>
                   <input
                     type="text"
                     value={formData.Shalarth_Id || ''}
                     onChange={(e) => setFormData({ ...formData, Shalarth_Id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter Shalarth ID"
+                    placeholder={t('erms.placeholderShalarthId')}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cast Category</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.castCategory')}</label>
                   <select
                     value={formData.cast_category || ''}
                     onChange={(e) => setFormData({ ...formData, cast_category: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Select Appointment Caste Category</option>
+                    <option value="">{t('erms.selectCastCategory')}</option>
                     <option value="Open">Open</option>
                     <option value="Scheduled Tribe">Scheduled Tribe</option>
                     <option value="Other Backward Class">Other Backward Class</option>
@@ -1138,13 +1249,13 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Appointment Caste Category</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.appointmentCastCategory')}</label>
                   <select
                     value={formData.appointment_caste_category || ''}
                     onChange={(e) => setFormData({ ...formData, appointment_caste_category: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Select Appointment Caste Category</option>
+                    <option value="">{t('erms.selectAppointmentCastCategory')}</option>
                     <option value="Open">Open</option>
                     <option value="Scheduled Tribe">Scheduled Tribe</option>
                     <option value="Other Backward Class">Other Backward Class</option>
@@ -1159,13 +1270,13 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Teacher Type</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.teacherType')}</label>
                   <select
                     value={formData.teacher_type || ''}
                     onChange={(e) => setFormData({ ...formData, teacher_type: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Select Teacher Type</option>
+                    <option value="">{t('erms.selectTeacherType')}</option>
                     <option value="Graduate">Graduate</option>
                     <option value="Under Graduate">Under Graduate</option>
                     <option value="Headmaster">Headmaster</option>
@@ -1173,7 +1284,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Teacher Active Status</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.teacherActiveStatus')}</label>
                   <select
                     value={formData.teacher_is_active ? 'true' : 'false'}
                     onChange={(e) => setFormData({ ...formData, teacher_is_active: e.target.value === 'true' })}
@@ -1185,7 +1296,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cadre</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.Cadre')}</label>
                   <input
                     type="text"
                     value="C"
@@ -1277,6 +1388,22 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.assignedOfficer')}
+                  </label>
+                  <select
+                    value={formData.officer_assigned || ''}
+                    onChange={(e) => setFormData({ ...formData, officer_assigned: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectOfficer')}</option>
+                    {officers.map(officer => (
+                      <option key={officer.user_id} value={officer.user_id}>{officer.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -1349,13 +1476,13 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.gender')}</label>
                   <select
                     value={formData.gender || ''}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Select Gender</option>
+                    <option value="">{t('erms.selectGender')}</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
@@ -1363,24 +1490,24 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Shalarth ID</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.shalarthId')}</label>
                   <input
                     type="text"
                     value={formData.Shalarth_Id || ''}
                     onChange={(e) => setFormData({ ...formData, Shalarth_Id: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter Shalarth ID"
+                    placeholder={t('erms.placeholderShalarthId')}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cast Category</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.castCategory')}</label>
                   <select
                     value={formData.cast_category || ''}
                     onChange={(e) => setFormData({ ...formData, cast_category: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Select Cast Category</option>
+                    <option value="">{t('erms.selectCastCategory')}</option>
                     <option value="General">General</option>
                     <option value="OBC">OBC</option>
                     <option value="SC">SC</option>
@@ -1390,13 +1517,13 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Appointment Caste Category</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.appointmentCastCategory')}</label>
                   <select
                     value={formData.appointment_caste_category || ''}
                     onChange={(e) => setFormData({ ...formData, appointment_caste_category: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Select Appointment Caste Category</option>
+                    <option value="">{t('erms.selectAppointmentCastCategory')}</option>
                     <option value="General">General</option>
                     <option value="OBC">OBC</option>
                     <option value="SC">SC</option>
@@ -1406,13 +1533,13 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Teacher Type</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.teacherType')} </label>
                   <select
                     value={formData.teacher_type || ''}
                     onChange={(e) => setFormData({ ...formData, teacher_type: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">Select Teacher Type</option>
+                    <option value="">{t('erms.selectTeacherType')}</option>
                     <option value="Primary">Primary</option>
                     <option value="Secondary">Secondary</option>
                     <option value="Higher Secondary">Higher Secondary</option>
@@ -1421,7 +1548,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Teacher Active Status</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.teacherActiveStatus')}</label>
                   <select
                     value={formData.teacher_is_active ? 'true' : 'false'}
                     onChange={(e) => setFormData({ ...formData, teacher_is_active: e.target.value === 'true' })}
@@ -1433,7 +1560,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Cadre</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('erms.Cadre')}</label>
                   <input
                     type="text"
                     value="C"
@@ -1527,6 +1654,23 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('erms.assignedOfficer')}
+                  </label>
+                  <select
+                    value={formData.officer_assigned || ''}
+                    onChange={(e) => setFormData({ ...formData, officer_assigned: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectOfficer')}</option>
+                    {officers.map(officer => (
+                      <option key={officer.user_id} value={officer.user_id}>{officer.name}</option>
+                    ))}
+                  </select>
+                </div>
+
               </div>
             </div>
 
