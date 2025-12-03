@@ -752,7 +752,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
   };
 
 
-const handleAddEmployee = async () => {debugger
+const handleAddEmployee = async () => {
   setEditingEmployee(null);
 
   // 1. Fetch the maximum emp_id from the employee table
@@ -816,7 +816,7 @@ const handleAddEmployee = async () => {debugger
     setShowEditModal(true);
   };
 
-  const handleSaveEmployee = async () => {debugger
+  const handleSaveEmployee = async () => {
     if (!formData.emp_id || !formData.employee_name || !formData.date_of_birth) {
       alert('Employee ID, name, and date of birth are required');
       return;

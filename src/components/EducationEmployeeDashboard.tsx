@@ -724,7 +724,6 @@ const handleAddEmployee = async () => {
   };
 
   const handleSaveEmployee = async () => {
-    debugger
 
     if (!formData.emp_id || !formData.employee_name || !formData.designation_id) {
       alert(t('erms.fillAllFields'));
