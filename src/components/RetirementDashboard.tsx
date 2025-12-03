@@ -369,7 +369,8 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
     const sixMonthsFromNow = new Date();
     sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
 
-    return retirementEmployees.filter(emp => {
+    // Use filteredEmployees (already role-filtered) so the count respects userRole access
+    return filteredEmployees.filter(emp => {
       if (!emp.retirement_date) return false;
       const date = new Date(emp.retirement_date);
       return date <= sixMonthsFromNow;
@@ -1712,14 +1713,14 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                             return (
                               <span
                                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${normalized === "completed"
-                                    ? "bg-green-100 text-green-800"
-                                    : normalized === "processing"
-                                      ? "bg-orange-100 text-orange-800"
-                                      : "bg-purple-100 text-purple-800"
+                                  ? "bg-green-100 text-green-800"
+                                  : normalized === "processing"
+                                    ? "bg-orange-100 text-orange-800"
+                                    : "bg-purple-100 text-purple-800"
                                   }`}
                               >{normalized === "completed" && (<CheckCircle className="h-3 w-3 mr-1" />)}
-                               {normalized === "processing" && (<Clock className="h-3 w-3 mr-1" />)}
-                               {normalized === "pending" && (<AlertCircle className="h-3 w-3 mr-1" />)}
+                                {normalized === "processing" && (<Clock className="h-3 w-3 mr-1" />)}
+                                {normalized === "pending" && (<AlertCircle className="h-3 w-3 mr-1" />)}
                                 {t(`erms.${normalized}`)}
                               </span>
                             );
