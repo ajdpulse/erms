@@ -499,7 +499,6 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       }
 
       const educationDeptId = educationDept?.dept_id;
-      console.log('Education Department ID:', educationDeptId);
 
       // Get total count excluding education department
       const countQuery = ermsClient
@@ -519,7 +518,6 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
         throw countError;
       }
 
-      console.log('Total employees (excluding education):', count);
       setTotalEmployeeCount(count || 0);
 
       // Fetch all records excluding education department
@@ -754,28 +752,47 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
   };
 
 
-  const handleAddEmployee = () => {
-    setEditingEmployee(null);
-    // Reset form data completely
-    setFormData({
-      emp_id: '',
-      employee_name: '',
-      date_of_birth: '',
-      retirement_date: '',
-      reason: '',
-      assigned_clerk: '',
-      officer_assigned: '',
-      dept_id: '',
-      designation_id: '',
-      tal_id: '',
-      office_id: '',
-      panchayatrajsevarth_id: '',
-      ddo_code: '',
-      Cadre: '',
-      date_of_joining: ''
-    });
-    setShowAddModal(true);
-  };
+const handleAddEmployee = async () => {debugger
+  setEditingEmployee(null);
+
+  // 1. Fetch the maximum emp_id from the employee table
+  const { data, error } = await ermsClient
+    .from("employee")
+    .select("emp_id")
+    .order("emp_id", { ascending: false })
+    .limit(1);
+
+  let nextId = "1";
+
+  if (!error && data && data.length > 0) {
+    const maxId = Number(data[0].emp_id);
+    if (!isNaN(maxId)) {
+      nextId = String(maxId + 1);
+    }
+  }
+
+  // 2. Set form with auto-generated next emp_id
+  setFormData({
+    emp_id: nextId,
+    employee_name: "",
+    date_of_birth: "",
+    retirement_date: "",
+    reason: "",
+    assigned_clerk: "",
+    officer_assigned: "",
+    dept_id: "",
+    designation_id: "",
+    tal_id: "",
+    office_id: "",
+    panchayatrajsevarth_id: "",
+    ddo_code: "",
+    Cadre: "",
+    date_of_joining: "",
+  });
+
+  // 3. Open modal
+  setShowAddModal(true);
+};
 
   const handleEditEmployee = (employee: Employee) => {
     setEditingEmployee(employee);
@@ -806,10 +823,10 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
     }
 
     // Check if Cadre is selected before calling calculateRetirementDate
-    console.log('🔍 Debugging retirement date calculation:');
-    console.log('   Date of Birth:', formData.date_of_birth);
-    console.log('   Cadre:', formData.Cadre);
-    console.log('   Cadre selected:', !!formData.Cadre);
+    // console.log('🔍 Debugging retirement date calculation:');
+    // console.log('   Date of Birth:', formData.date_of_birth);
+    // console.log('   Cadre:', formData.Cadre);
+    // console.log('   Cadre selected:', !!formData.Cadre);
 
     if (!formData.Cadre) {
       console.warn('⚠️ Warning: Cadre not selected, retirement date will be null');
@@ -1478,7 +1495,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('erms.cadre')} <span className="text-red-500">*</span>
+                    {t('erms.Cadre')} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.Cadre || ''}
@@ -1743,7 +1760,7 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('erms.cadre')} <span className="text-red-500">*</span>
+                    {t('erms.Cadre')} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.Cadre || ''}

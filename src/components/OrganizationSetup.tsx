@@ -267,14 +267,12 @@ export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onBack }) 
 
   const fetchDesignations = async () => {
     try {
-      console.log('📋 Fetching designations...');
       const { data, error } = await ermsClient
         .from('designations')
         .select('designation_id, designation, created_at, updated_at')
         .order('designation');
       
       if (error) throw error;
-      console.log('✅ Designations fetched:', data?.length || 0);
       setDesignations(data || []);
     } catch (error) {
       console.error('❌ Error fetching designations:', error);
@@ -283,14 +281,12 @@ export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onBack }) 
 
   const fetchDepartments = async () => {
     try {
-      console.log('🏢 Fetching departments...');
       const { data, error } = await ermsClient
         .from('department')
         .select('dept_id, department, created_at, updated_at')
         .order('department');
       
       if (error) throw error;
-      console.log('✅ Departments fetched:', data?.length || 0);
       setDepartments(data?.map(d => ({ id: d.dept_id, department: d.department, created_at: d.created_at, updated_at: d.updated_at })) || []);
     } catch (error) {
       console.error('❌ Error fetching departments:', error);
@@ -299,14 +295,12 @@ export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onBack }) 
 
   const fetchTalukas = async () => {
     try {
-      console.log('🗺️ Fetching talukas...');
       const { data, error } = await ermsClient
         .from('talukas')
         .select('tal_id, name, created_at, updated_at')
         .order('name');
       
       if (error) throw error;
-      console.log('✅ Talukas fetched:', data?.length || 0);
       setTalukas(data?.map(t => ({ id: t.tal_id, name: t.name, created_at: t.created_at, updated_at: t.updated_at })) || []);
     } catch (error) {
       console.error('❌ Error fetching talukas:', error);
@@ -315,14 +309,12 @@ export const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onBack }) 
 
   const fetchOfficeLocations = async () => {
     try {
-      console.log('🏢 Fetching office locations...');
       const { data, error } = await ermsClient
         .from('office_locations')
         .select('office_id, name, created_at, updated_at')
         .order('name');
       
       if (error) throw error;
-      console.log('✅ Office locations fetched:', data?.length || 0);
       setOfficeLocations(data || []);
     } catch (error) {
       console.error('❌ Error fetching office locations:', error);

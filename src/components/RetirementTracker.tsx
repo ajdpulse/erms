@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PayCommission } from './PayCommission';
 import { GroupInsurance } from './GroupInsurance';
@@ -56,6 +56,7 @@ interface RetirementProgress {
   common_progress_comment: string | null;
   common_progress_date: string | null;
   government_decision_march_31_2023: string | null;
+  retirement_date?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -139,6 +140,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
           searchTerm: parsed.searchTerm || '',
           selectedDepartment: parsed.selectedDepartment || '',
           selectedClerk: parsed.selectedClerk || '',
+          selectedOfficer: parsed.selectedOfficer || '',
+          filterType: parsed.filterType || '',
           selectedStatus: parsed.selectedStatus || '',
           activeTab: parsed.activeTab || 'inProgress',
           currentPage: parsed.currentPage || 1
@@ -151,6 +154,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
       searchTerm: '',
       selectedDepartment: '',
       selectedClerk: '',
+      selectedOfficer: '',
+      filterType: '',
       selectedStatus: '',
       activeTab: 'inProgress',
       currentPage: 1
@@ -184,6 +189,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
   const [activeMainTab, setActiveMainTab] = useState(getInitialActiveMainTab);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedClerk, setSelectedClerk] = useState(initialFilters.selectedClerk);
+  const [selectedOfficer, setSelectedOfficer] = useState(initialFilters.selectedClerk);
   const [selectedDepartment, setSelectedDepartment] = useState(initialFilters.selectedDepartment);
   const [selectedStatus, setSelectedStatus] = useState(initialFilters.selectedStatus);
   const [searchTerm, setSearchTerm] = useState(initialFilters.searchTerm);
@@ -198,8 +204,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
   // Data states
   const [retirementProgress, setRetirementProgress] = useState<RetirementProgress[]>([]);
   const [clerks, setClerks] = useState<ClerkData[]>([]);
+  const [officers, setOfficers] = useState<ClerkData[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<RetirementProgress[]>([]);
+  const [filterType, setFilterType] = useState<string>('');
 
   const [persistenceEnabled, setPersistenceEnabled] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -211,6 +219,8 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
         searchTerm,
         selectedDepartment,
         selectedClerk,
+        selectedOfficer,
+        filterType,
         selectedStatus,
         activeTab,
         currentPage,
@@ -256,6 +266,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
   };
 
   useEffect(() => {
+    if (!userRole) return;
     fetchAllData();
 
     setTimeout(() => {
@@ -305,13 +316,13 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [userRole]);
 
   useEffect(() => {
     if (isInitialized) {
       saveFilters();
     }
-  }, [searchTerm, selectedDepartment, selectedClerk, selectedStatus, activeTab, currentPage, isInitialized]);
+  }, [searchTerm, selectedDepartment, selectedClerk, selectedOfficer, selectedStatus, filterType, activeTab, currentPage, isInitialized]);
 
   useEffect(() => {
     if (isInitialized) {
@@ -332,14 +343,17 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
 
   useEffect(() => {
     filterEmployees();
-  }, [retirementProgress, selectedClerk, selectedDepartment, selectedStatus, searchTerm, userRole, userProfile]);
+  }, [retirementProgress, selectedClerk, filterType, selectedOfficer, selectedDepartment, selectedStatus, searchTerm, userRole, userProfile]);
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
+    if (!userRole) return;
+
     setIsLoading(true);
     try {
       await Promise.all([
         fetchRetirementProgress(),
         fetchClerks(),
+        fetchOfficers(),
         fetchDepartments()
       ]);
     } catch (error) {
@@ -347,13 +361,15 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userRole]);
 
-const fetchRetirementProgress = async () => {
-  try {
-    const { data, error } = await ermsClient
-      .from('retirement_progress')
-      .select(`
+
+  const fetchRetirementProgress = async () => {
+    try {
+      // 1️⃣ Fetch retirement_progress rows
+      const { data: progressData, error: progressError } = await ermsClient
+        .from('retirement_progress')
+        .select(`
         id,
         emp_id,
         employee_name,
@@ -383,134 +399,241 @@ const fetchRetirementProgress = async () => {
         created_at,
         updated_at
       `)
-      .order('age', { ascending: false });
+        .order('age', { ascending: false });
 
-    if (error) throw error;
+      if (progressError) throw progressError;
 
-    // 🔹 Fetch Panchayatraj Sevarth ID & Shalarth ID
-    const employeeIds = data?.map(x => x.emp_id) || [];
+      const empIds = (progressData || []).map(r => r.emp_id);
 
-    const { data: employeeData } = await ermsClient
-      .from('employee')
-      .select(`
+      const { data: employeeData } = await ermsClient
+        .from('employee')
+        .select(`
         emp_id,
         panchayatrajsevarth_id,
         Shalarth_Id
       `)
-      .in('emp_id', employeeIds);
+        .in('emp_id', empIds);
 
-    const employeeMap = new Map(
-      (employeeData || []).map(e => [
-        e.emp_id,
-        {
-          panchayatrajsevarth_id: e.panchayatrajsevarth_id,
-          Shalarth_Id: e.Shalarth_Id
-        }
-      ])
-    );
+      const idMap = new Map(
+        (employeeData || []).map(e => [
+          e.emp_id,
+          {
+            panchayatrajsevarth_id: e.panchayatrajsevarth_id,
+            Shalarth_Id: e.Shalarth_Id
+          }
+        ])
+      );
 
-    // 🔥 NEW IMPORTANT FIX: Fetch correct retirement IDs from employee_retirement
-    const { data: retirementLookup } = await ermsClient
-      .from('employee_retirement')
-      .select('emp_id, id');
+      const { data: retirementLookup, error: retirementLookupError } = await ermsClient
+        .from('employee_retirement')
+        .select('emp_id, id, retirement_date');
 
-    const retirementIdMap = new Map(
-      (retirementLookup || []).map(r => [r.emp_id, r.id])
-    );
+      if (retirementLookupError) throw retirementLookupError;
 
-    // 🔥 Use correct retirement IDs for tracking
-    const correctRetirementIds = data?.map(emp => retirementIdMap.get(emp.emp_id)) || [];
+      const retirementIdMap = new Map(
+        (retirementLookup || []).map(r => [
+          r.emp_id,
+          { id: r.id, retirement_date: r.retirement_date }
+        ])
+      );
 
-    // Fetch file tracking status
-    const { data: trackingData } = await ermsClient
-      .from('retirement_file_tracking')
-      .select('retirement_id, status')
-      .in('retirement_id', correctRetirementIds)
-      .in('status', ['assigned', 'completed']);
+      const retirementIds = (progressData || [])
+        .map(e => retirementIdMap.get(e.emp_id)?.id)
+        .filter(Boolean);
 
-    const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+      const { data: trackingData } = await ermsClient
+        .from('retirement_file_tracking')
+        .select('retirement_id, status')
+        .in('retirement_id', retirementIds)
+        .in('status', ['assigned', 'completed']);
 
-     // 3️⃣ Fetch officer_assigned from retirement_progress table
-          const { data: progressData, error: progressError } = await ermsClient
-            .from('retirement_progress')
-            .select('emp_id, officer_assigned')
-            .in('emp_id', employeeIds);
-    
-          if (progressError) throw progressError;
+      const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
 
-    // 🔥 Merge data
-    const employeesWithUpdatedStatus = await Promise.all(
-      (data || []).map(async (employee) => {
+      const { data: officerData, error: officerError } = await ermsClient
+        .from('retirement_progress')
+        .select('emp_id, officer_assigned')
+        .in('emp_id', empIds);
+
+      if (officerError) throw officerError;
+
+      const officerAssignedMap = new Map(officerData?.map(o => [o.emp_id, o.officer_assigned]) || []);
+
+      const employeesWithUpdatedStatus = (progressData || []).map(employee => {
         const calculatedStatus = getProgressStatus(employee);
 
-        // update status (unchanged)
-        if (employee.status !== calculatedStatus) {
-          try {
-            const { error: updateError } = await ermsClient
-              .from('retirement_progress')
-              .update({ status: calculatedStatus })
-              .eq('id', employee.id);
-
-            if (updateError) {
-              console.error('Error updating status for employee:', employee.emp_id, updateError);
-            }
-          } catch (updateError) {
-            console.error('Error updating employee status:', updateError);
-          }
-        }
-
-        const extraFields = employeeMap.get(employee.emp_id) || {
+        const extraFields = idMap.get(employee.emp_id) || {
           panchayatrajsevarth_id: null,
           Shalarth_Id: null
         };
 
-        // map correct retirement ID
-        const retirementId = retirementIdMap.get(employee.emp_id);
+        const retirementInfo = retirementIdMap.get(employee.emp_id) || { id: null, retirement_date: null };
 
         return {
           ...employee,
           status: calculatedStatus,
-          in_file_tracking: trackingMap.has(retirementId),
-          file_tracking_status: trackingMap.get(retirementId) || null,
-
-          // extra IDs
+          in_file_tracking: retirementInfo.id ? trackingMap.has(retirementInfo.id) : false,
+          file_tracking_status: retirementInfo.id ? trackingMap.get(retirementInfo.id) || null : null,
+          officer_assigned: officerAssignedMap.get(employee.emp_id) || employee.officer_assigned || null,
           panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
-          Shalarth_Id: extraFields.Shalarth_Id
-        };
-      })
-    );
+          Shalarth_Id: extraFields.Shalarth_Id,
+          retirement_date: retirementInfo.retirement_date || null
+        } as RetirementProgress & { retirement_date?: string | null };
+      });
 
-    setRetirementProgress(employeesWithUpdatedStatus);
-  } catch (error) {
-    console.error('Error fetching retirement progress:', error);
-  }
-};
+      setRetirementProgress(employeesWithUpdatedStatus);
+    } catch (error) {
+      console.error('Error fetching retirement progress:', error);
+      setRetirementProgress([]); // keep behavior consistent with other fetchers
+    }
+  };
 
-  const fetchClerks = async () => {
+  const fetchClerks = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select(`
+      let clerkNames: string[] = [];
+
+      if (userRole === 'officer') {
+        // only clerks assigned to this officer
+        const { data: progressData, error: progressError } = await ermsClient
+          .from('retirement_progress')
+          .select('assigned_clerk')
+          .eq('officer_assigned', user.id);
+
+        if (progressError) throw progressError;
+        clerkNames = Array.from(
+          new Set(
+            (progressData || [])
+              .map((r: any) => r.assigned_clerk)
+              .filter(Boolean)
+          )
+        );
+      } else if (['super_admin', 'admin', 'developer'].includes(userRole ?? '')) {
+        const { data: progressData, error: progressError } = await ermsClient
+          .from('retirement_progress')
+          .select('assigned_clerk');
+
+        if (progressError) throw progressError;
+        clerkNames = Array.from(
+          new Set(
+            (progressData || [])
+              .map((r: any) => r.assigned_clerk)
+              .filter(Boolean)
+          )
+        );
+      }
+
+      let clerksData: ClerkData[] = [];
+
+      // ⭐ FIXED PART — filter clerks by name if clerkNames has values ⭐
+      if (clerkNames.length > 0) {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
           user_id,
           name,
           roles!inner(name)
         `)
-        .eq('roles.name', 'clerk')
-        .not('name', 'is', null);
+          .eq('roles.name', 'clerk')
+          .not('name', 'is', null)
+          .in('name', clerkNames);   // <-- THIS WAS MISSING (FIXED)
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const clerksData = data?.map(clerk => ({
-        user_id: clerk.user_id,
-        name: clerk.name,
-        role_name: clerk.roles?.name || 'clerk'
-      })) || [];
+        clerksData = (data || []).map((clerk: any) => ({
+          user_id: clerk.user_id,
+          name: clerk.name,
+          role_name: clerk.roles?.name || 'clerk'
+        }));
+      } else {
+        // fallback: fetch all clerks
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
+          user_id,
+          name,
+          roles!inner(name)
+        `)
+          .eq('roles.name', 'clerk')
+          .not('name', 'is', null);
 
+        if (error) throw error;
+
+        clerksData = (data || []).map((clerk: any) => ({
+          user_id: clerk.user_id,
+          name: clerk.name,
+          role_name: clerk.roles?.name || 'clerk'
+        }));
+      }
+
+      console.log('Fetched clerks:', clerksData);
       setClerks(clerksData);
     } catch (error) {
       console.error('Error fetching clerks:', error);
+      setClerks([]);
     }
-  };
+  }, [userRole, user.id]);
+
+  const fetchOfficers = useCallback(async () => {
+    try {
+
+      let officerIds: string[] = [];
+
+      if (['super_admin', 'admin', 'developer'].includes(userRole ?? '')) {
+        const { data: progressData, error: progressError } = await ermsClient
+          .from('retirement_progress')
+          .select('officer_assigned');
+
+        if (progressError) throw progressError;
+        officerIds = Array.from(new Set((progressData || [])
+          .map((r: any) => r.officer_assigned)
+          .filter(Boolean)));
+      }
+
+      let officersData: ClerkData[] = [];
+
+      if (officerIds.length > 0) {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
+           user_id,
+           name,
+           roles!inner(name)
+         `)
+          .in('user_id', officerIds)
+          .eq('roles.name', 'officer')
+          .not('name', 'is', null);
+
+        if (error) throw error;
+
+        officersData = (data || []).map((officer: any) => ({
+          user_id: officer.user_id,
+          name: officer.name,
+          role_name: officer.roles?.name || 'officer'
+        }));
+      } else {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
+             user_id,
+             name,
+             roles!inner(name)
+           `)
+          .eq('roles.name', 'officer')
+          .not('name', 'is', null);
+
+        if (error) throw error;
+
+        officersData = (data || []).map((officer: any) => ({
+          user_id: officer.user_id,
+          name: officer.name,
+          role_name: officer.roles?.name || 'officer'
+        }));
+      }
+
+      setOfficers(officersData);
+    } catch (error) {
+      console.error('Error fetching officers:', error);
+    }
+  }, [userRole]);
 
   const fetchDepartments = async () => {
     try {
@@ -526,7 +649,7 @@ const fetchRetirementProgress = async () => {
     }
   };
 
-  const filterEmployees = () => {debugger
+  const filterEmployees = () => {
     let filtered = retirementProgress;
 
     // Role-based filtering
@@ -535,7 +658,7 @@ const fetchRetirementProgress = async () => {
       filtered = filtered.filter(emp => emp.assigned_clerk === userProfile.name);
     }
 
-     if (userRole === 'officer') {
+    if (userRole === 'officer') {
       filtered = filtered.filter(emp => emp.officer_assigned === user.id);
     }
 
@@ -558,6 +681,10 @@ const fetchRetirementProgress = async () => {
       }
     }
 
+    if (selectedOfficer) {
+      filtered = filtered.filter(emp => emp.officer_assigned === selectedOfficer);
+    }
+
     // Department filter
     if (selectedDepartment) {
       filtered = filtered.filter(emp => emp.department === selectedDepartment);
@@ -566,6 +693,29 @@ const fetchRetirementProgress = async () => {
     // Status filter
     if (selectedStatus) {
       filtered = filtered.filter(emp => getProgressStatus(emp) === selectedStatus);
+    }
+
+    if (filterType === 'upcomingRetirements') {
+      const sixMonthsFromNow = new Date();
+      sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+
+      filtered = filtered.filter(emp => {
+        if (!emp.retirement_date) return false;
+        const date = new Date(emp.retirement_date);
+        return date <= sixMonthsFromNow;
+      });
+    }
+
+    if (filterType === 'processing') {
+      filtered = filtered.filter(emp => getProgressStatus(emp) === 'processing');
+    }
+
+    if (filterType === 'completed') {
+      filtered = filtered.filter(emp => getProgressStatus(emp) === 'completed');
+    }
+
+    if (filterType === 'pending') {
+      filtered = filtered.filter(emp => getProgressStatus(emp) === 'pending');
     }
 
     setFilteredEmployees(filtered);
@@ -665,8 +815,13 @@ const fetchRetirementProgress = async () => {
 
         <div className="rounded-b-xl shadow-inner">
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+            <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+              onClick={() => {
+                setFilterType('total');
+                setTimeout(() => { }, 0);
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-indigo-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.totalCases')}</p>
@@ -678,7 +833,33 @@ const fetchRetirementProgress = async () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+            <div
+              className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+              onClick={() => {
+                setFilterType('upcomingRetirements');
+                setTimeout(() => { }, 0);
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">
+                    {t('erms.upcomingRetirements')}
+                  </p>
+                  <p className="text-2xl font-extrabold text-orange-800">{calculateUpcomingRetirements()}</p>
+                  <p className="text-xs text-orange-600 font-medium">{t('erms.nextSixMonths')}</p>
+                </div>
+                <div className="bg-gradient-to-tr from-orange-500 to-yellow-500 p-3 rounded-2xl shadow-md">
+                  <Calendar className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+              onClick={() => {
+                setFilterType('processing');
+                setTimeout(() => { }, 0);
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.processing')}</p>
@@ -690,7 +871,12 @@ const fetchRetirementProgress = async () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+            <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+              onClick={() => {
+                setFilterType('completed');
+                setTimeout(() => { }, 0);
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.completed')}</p>
@@ -702,7 +888,11 @@ const fetchRetirementProgress = async () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-md border border-purple-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+            <div className="bg-white rounded-xl shadow-md border border-purple-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+              onClick={() => {
+                setFilterType('pending');
+                setTimeout(() => { }, 0);
+              }}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-purple-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.pending')}</p>
@@ -729,71 +919,71 @@ const fetchRetirementProgress = async () => {
                     <span className="text-sm font-semibold">{t('erms.refresh')}</span>
                   </button>
                   <button
-  onClick={() => {
-    const data = getTabFilteredEmployees(); // 👈 export filtered table data (UI only)
+                    onClick={() => {
+                      const data = getTabFilteredEmployees(); // 👈 export filtered table data (UI only)
 
-    if (!data || data.length === 0) {
-      alert("No data available to export");
-      return;
-    }
+                      if (!data || data.length === 0) {
+                        alert("No data available to export");
+                        return;
+                      }
 
-    // Export ONLY UI-side table columns
-    const uiColumns = [
-      "Shalarth_Id",
-      "panchayatrajsevarth_id",
-      "emp_id",
-      "employee_name",
-      "status",
-      "date_of_birth_verification",
-      "birth_certificate_doc_submitted",
-      "medical_certificate",
-      "nomination",
-      "permanent_registration",
-      "computer_exam_passed",
-      "marathi_hindi_exam_exemption",
-      "post_service_exam",
-      "appointed_employee",
-      "validity_certificate",
-      "verification_completed",
-      "has_undertaking_been_taken_on_21_12_2021",
-      "no_objection_no_inquiry_certificate",
-      "retirement_order",
-    ];
+                      // Export ONLY UI-side table columns
+                      const uiColumns = [
+                        "Shalarth_Id",
+                        "panchayatrajsevarth_id",
+                        "emp_id",
+                        "employee_name",
+                        "status",
+                        "date_of_birth_verification",
+                        "birth_certificate_doc_submitted",
+                        "medical_certificate",
+                        "nomination",
+                        "permanent_registration",
+                        "computer_exam_passed",
+                        "marathi_hindi_exam_exemption",
+                        "post_service_exam",
+                        "appointed_employee",
+                        "validity_certificate",
+                        "verification_completed",
+                        "has_undertaking_been_taken_on_21_12_2021",
+                        "no_objection_no_inquiry_certificate",
+                        "retirement_order",
+                      ];
 
-    const headers = uiColumns.join(",");
+                      const headers = uiColumns.join(",");
 
-    const rows = data.map(row =>
-      uiColumns
-        .map(key => {
-          let value = row[key];
+                      const rows = data.map(row =>
+                        uiColumns
+                          .map(key => {
+                            let value = row[key];
 
-          // Format date same as UI
-          if (key === "retirement_date" && value) {
-            value = new Date(value).toLocaleDateString();
-          }
+                            // Format date same as UI
+                            if (key === "retirement_date" && value) {
+                              value = new Date(value).toLocaleDateString();
+                            }
 
-          return `"${value !== null && value !== undefined ? value : ''}"`;
-        })
-        .join(",")
-    );
+                            return `"${value !== null && value !== undefined ? value : ''}"`;
+                          })
+                          .join(",")
+                      );
 
-    const csvContent = [headers, ...rows].join("\n");
+                      const csvContent = [headers, ...rows].join("\n");
 
-    // Download CSV file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "retirement_progress_ui_table.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }}
-  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
->
-  <Download className="h-4 w-4" />
-  <span className="text-sm font-semibold">{t('common.export')}</span>
-</button>
+                      // Download CSV file
+                      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.setAttribute("href", url);
+                      link.setAttribute("download", "retirement_progress_ui_table.csv");
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span className="text-sm font-semibold">{t('common.export')}</span>
+                  </button>
 
                 </div>
               </div>
@@ -835,18 +1025,41 @@ const fetchRetirementProgress = async () => {
                   <option value="completed">{t('retirementTracker.completed')}</option>
                 </select>
 
+                {['super_admin', 'admin', 'developer'].includes(userRole ?? '') && (
+                  <select
+                    value={selectedOfficer}
+                    onChange={(e) => setSelectedOfficer(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">{t('erms.selectOfficer')}</option>
+                    {officers.map(officer => (
+                      <option key={officer.user_id} value={officer.user_id}>{officer.name}</option>
+                    ))}
+                  </select>
+                )}
+
                 {userRole !== 'clerk' && (
                   <select
                     value={selectedClerk}
                     onChange={(e) => setSelectedClerk(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">{t('retirementTracker.allClerks')}</option>
-                    {clerks.map((clerk) => (
-                      <option key={clerk.user_id} value={clerk.user_id}>
-                        {clerk.name}
-                      </option>
-                    ))}
+                    <option value="">{t('erms.allClerksGlobalView')}</option>
+                    {
+                      (selectedOfficer
+                        ? clerks.filter((clerk) =>
+                          filteredEmployees.some(
+                            (emp) =>
+                              emp.officer_assigned === selectedOfficer &&
+                              emp.assigned_clerk === clerk.name
+                          )
+                        )
+                        : clerks
+                      ).map((clerk) => (
+                        <option key={clerk.user_id} value={clerk.user_id}>
+                          {clerk.name}
+                        </option>
+                      ))}
                   </select>
                 )}
 
@@ -1739,6 +1952,18 @@ const fetchRetirementProgress = async () => {
     setShowViewModal(true);
   };
 
+  // ➕ Add this function exactly here (after getStatusCounts)
+  const calculateUpcomingRetirements = () => {
+    const sixMonthsFromNow = new Date();
+    sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+
+    return filteredEmployees.filter(emp => {
+      if (!emp.retirement_date) return false;
+      const date = new Date(emp.retirement_date);
+      return date <= sixMonthsFromNow;
+    }).length;
+  };
+
   const handleEditRecord = async (record: RetirementProgressRecord) => {
     // Check if file is in tracking
     if (record.in_file_tracking) {
@@ -1942,6 +2167,8 @@ const fetchRetirementProgress = async () => {
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedClerk('');
+    setSelectedOfficer('');
+    setFilterType('');
     setSelectedDepartment('');
     setSelectedStatus('');
   };

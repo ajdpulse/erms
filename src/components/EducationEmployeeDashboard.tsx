@@ -673,21 +673,58 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     return { total, upcomingRetirements, assigned, unassigned };
   };
 
-  const handleAddEmployee = () => {
-    setFormData({
-      Cadre: 'C',
-      date_of_joining: ''
-    });
-    setEditingEmployee(null);
-    setShowAddModal(true);
-  };
+const handleAddEmployee = async () => {
+  setEditingEmployee(null);
+
+  // 1. Fetch max emp_id from actual employee table
+  const { data, error } = await ermsClient
+    .from("employee")
+    .select("emp_id")
+    .order("emp_id", { ascending: false })
+    .limit(1);
+
+  let nextId = "1";
+
+  if (!error && data && data.length > 0) {
+    const maxId = Number(data[0].emp_id);
+    if (!isNaN(maxId)) {
+      nextId = String(maxId + 1);
+    }
+  }
+
+  // 2. Apply to your form structure
+  setFormData({
+    emp_id: nextId,
+    Cadre: "C",
+    date_of_joining: "",
+    employee_name: "",
+    employee_name_en: "",
+    gender: "",
+    Shalarth_Id: "",
+    cast_category: "",
+    appointment_caste_category: "",
+    teacher_type: "",
+    teacher_is_active: true,
+    designation_id: "",
+    date_of_birth: "",
+    taluka: "",
+    office_id: "",
+    assigned_clerk: "",
+    officer_assigned: ""
+  });
+
+  // 3. Open modal
+  setShowAddModal(true);
+};
 
   const handleEditEmployee = (employee: EducationEmployee) => {
     setFormData(employee);
     setEditingEmployee(employee);
     setShowEditModal(true);
   };
+
   const handleSaveEmployee = async () => {
+    debugger
 
     if (!formData.emp_id || !formData.employee_name || !formData.designation_id) {
       alert(t('erms.fillAllFields'));
@@ -1508,11 +1545,16 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">{t('erms.selectCastCategory')}</option>
-                    <option value="General">General</option>
-                    <option value="OBC">OBC</option>
-                    <option value="SC">SC</option>
-                    <option value="ST">ST</option>
-                    <option value="NT">NT</option>
+                    <option value="Open">Open</option>
+                    <option value="Scheduled Tribe">Scheduled Tribe</option>
+                    <option value="Other Backward Class">Other Backward Class</option>
+                    <option value="Scheduled Caste">Scheduled Caste</option>
+                    <option value="Nomadic Tribe (B)">Nomadic Tribe (B)</option>
+                    <option value="Special Backward Class">Special Backward Class</option>
+                    <option value="Vimukta Jati (A)">Vimukta Jati (A)</option>
+                    <option value="Nomadic Tribe (D)">Nomadic Tribe (D)</option>
+                    <option value="Economically Weaker Section">Economically Weaker Section</option>
+                    <option value="Special Backward Category (A)">Special Backward Category (A)</option>
                   </select>
                 </div>
 
@@ -1524,11 +1566,16 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">{t('erms.selectAppointmentCastCategory')}</option>
-                    <option value="General">General</option>
-                    <option value="OBC">OBC</option>
-                    <option value="SC">SC</option>
-                    <option value="ST">ST</option>
-                    <option value="NT">NT</option>
+                    <option value="Open">Open</option>
+                    <option value="Scheduled Tribe">Scheduled Tribe</option>
+                    <option value="Other Backward Class">Other Backward Class</option>
+                    <option value="Scheduled Caste">Scheduled Caste</option>
+                    <option value="Nomadic Tribe (B)">Nomadic Tribe (B)</option>
+                    <option value="Special Backward Class">Special Backward Class</option>
+                    <option value="Vimukta Jati (A)">Vimukta Jati (A)</option>
+                    <option value="Nomadic Tribe (D)">Nomadic Tribe (D)</option>
+                    <option value="Economically Weaker Section">Economically Weaker Section</option>
+                    <option value="Special Backward Category (A)">Special Backward Category (A)</option>
                   </select>
                 </div>
 

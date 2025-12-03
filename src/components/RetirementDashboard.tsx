@@ -300,6 +300,28 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
       filtered = filtered.filter(emp => getProgressStatus(emp) === selectedStatus);
     }
 
+    if (filterType === 'upcomingRetirements') {
+      const sixMonthsFromNow = new Date();
+      sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+      filtered = filtered.filter(emp => {
+        if (!emp.retirement_date) return false;
+        const retirementDate = new Date(emp.retirement_date);
+        return retirementDate <= sixMonthsFromNow;
+      });
+    }
+
+    if (filterType === 'processing') {
+      filtered = filtered.filter(emp => getProgressStatus(emp) === 'processing');
+    }
+
+    if (filterType === 'completed') {
+      filtered = filtered.filter(emp => getProgressStatus(emp) === 'completed');
+    }
+
+    if (filterType === 'pending') {
+      filtered = filtered.filter(emp => getProgressStatus(emp) === 'pending');
+    }
+
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       filtered = filtered.filter(emp =>
@@ -317,6 +339,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
     userProfile,
     clerks,
     selectedClerk,
+    filterType,
     selectedOfficer,
     selectedDepartment,
     selectedStatus,
@@ -342,16 +365,16 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
   }, [filteredEmployees]);
 
   // ➕ ADD THIS FUNCTION (same as EmployeeDashboard)
-  // const calculateUpcomingRetirements = () => {
-  //   const sixMonthsFromNow = new Date();
-  //   sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+  const calculateUpcomingRetirements = () => {
+    const sixMonthsFromNow = new Date();
+    sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
 
-  //   return retirementEmployees.filter(emp => {
-  //     if (!emp.retirement_date) return false;
-  //     const date = new Date(emp.retirement_date);
-  //     return date <= sixMonthsFromNow;
-  //   }).length;
-  // };
+    return retirementEmployees.filter(emp => {
+      if (!emp.retirement_date) return false;
+      const date = new Date(emp.retirement_date);
+      return date <= sixMonthsFromNow;
+    }).length;
+  };
 
   // Helper function to calculate retirement progress status
   const calculateRetirementProgressStatus = (record: any) => {
@@ -418,6 +441,8 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
 
   // Initial data fetch - only run once on mount
   useEffect(() => {
+    if (!userRole) return;
+
     fetchAllData();
 
     setTimeout(() => {
@@ -436,13 +461,14 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, [userRole]);  // ✅ Added dependency
+
 
   useEffect(() => {
     if (isInitialized) {
       saveState();
     }
-  }, [activeTab, selectedClerk, selectedMonth, selectedYear, currentPage, isInitialized]);
+  }, [activeTab, selectedClerk, selectedMonth, selectedYear, filterType, currentPage, isInitialized]);
 
   // Restore modal state (edit/view) when the component initializes so that
   // switching tabs away and back preserves the modal if it was open.
@@ -491,23 +517,23 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
   }, [retirementEmployees, selectedClerk]);
 
   const fetchAllData = useCallback(async () => {
-    if (isLoading) return; // Prevent multiple simultaneous calls
-
+    if (isLoading || !userRole) return;
     setIsLoading(true);
     try {
       await Promise.all([
         fetchDepartments(),
         fetchDesignations(),
         fetchRetirementEmployees(),
-        fetchClerks(),
-        fetchOfficers()
+        fetchClerks(),     // now safe
+        fetchOfficers()    // now safe
       ]);
     } catch (error) {
       console.error('Error fetching retirement dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading]);
+  }, [isLoading, userRole]);
+
 
   const fetchRetirementEmployees = useCallback(async () => {
     try {
@@ -627,56 +653,155 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
 
   const fetchClerks = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select(`
+      let clerkNames: string[] = [];
+
+      if (userRole === 'officer') {
+        // only clerks assigned to this officer
+        const { data: progressData, error: progressError } = await ermsClient
+          .from('retirement_progress')
+          .select('assigned_clerk')
+          .eq('officer_assigned', user.id);
+
+        if (progressError) throw progressError;
+        clerkNames = Array.from(
+          new Set(
+            (progressData || [])
+              .map((r: any) => r.assigned_clerk)
+              .filter(Boolean)
+          )
+        );
+      } else if (['super_admin', 'admin', 'developer'].includes(userRole ?? '')) {
+        const { data: progressData, error: progressError } = await ermsClient
+          .from('retirement_progress')
+          .select('assigned_clerk');
+
+        if (progressError) throw progressError;
+        clerkNames = Array.from(
+          new Set(
+            (progressData || [])
+              .map((r: any) => r.assigned_clerk)
+              .filter(Boolean)
+          )
+        );
+      }
+
+      let clerksData: ClerkData[] = [];
+
+      // ⭐ FIXED PART — filter clerks by name if clerkNames has values ⭐
+      if (clerkNames.length > 0) {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
           user_id,
           name,
           roles!inner(name)
         `)
-        .eq('roles.name', 'clerk')
-        .not('name', 'is', null);
+          .eq('roles.name', 'clerk')
+          .not('name', 'is', null)
+          .in('name', clerkNames);   // <-- THIS WAS MISSING (FIXED)
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const clerksData = data?.map(clerk => ({
-        user_id: clerk.user_id,
-        name: clerk.name,
-        role_name: clerk.roles?.name || 'clerk'
-      })) || [];
+        clerksData = (data || []).map((clerk: any) => ({
+          user_id: clerk.user_id,
+          name: clerk.name,
+          role_name: clerk.roles?.name || 'clerk'
+        }));
+      } else {
+        // fallback: fetch all clerks
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
+          user_id,
+          name,
+          roles!inner(name)
+        `)
+          .eq('roles.name', 'clerk')
+          .not('name', 'is', null);
 
+        if (error) throw error;
+
+        clerksData = (data || []).map((clerk: any) => ({
+          user_id: clerk.user_id,
+          name: clerk.name,
+          role_name: clerk.roles?.name || 'clerk'
+        }));
+      }
+
+      console.log('Fetched clerks:', clerksData);
       setClerks(clerksData);
     } catch (error) {
       console.error('Error fetching clerks:', error);
-      setClerks([]); // Set empty array on error
+      setClerks([]);
     }
-  }, []);
+  }, [userRole, user.id]);
 
-  const fetchOfficers = async () => {
+  const fetchOfficers = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select(`
+      // 1) If current user is admin/super_admin/developer -> limit officers to those assigned in retirement_progress
+      //    Otherwise fallback to original behaviour (fetch all officers)
+      let officerIds: string[] = [];
+
+      if (['super_admin', 'admin', 'developer'].includes(userRole ?? '')) {
+        // collect officer user_ids from retirement_progress (officer_assigned)
+        const { data: progressData, error: progressError } = await ermsClient
+          .from('retirement_progress')
+          .select('officer_assigned');
+
+        if (progressError) throw progressError;
+        officerIds = Array.from(new Set((progressData || [])
+          .map((r: any) => r.officer_assigned)
+          .filter(Boolean)));
+      }
+
+      let officersData: ClerkData[] = [];
+
+      if (officerIds.length > 0) {
+        // fetch only those officers referenced in retirement_progress
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
+          user_id,
+          name,
+          roles!inner(name)
+        `)
+          .in('user_id', officerIds)
+          .eq('roles.name', 'officer')
+          .not('name', 'is', null);
+
+        if (error) throw error;
+
+        officersData = (data || []).map((officer: any) => ({
+          user_id: officer.user_id,
+          name: officer.name,
+          role_name: officer.roles?.name || 'officer'
+        }));
+      } else {
+        // fallback: fetch all officers (original behaviour)
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
             user_id,
             name,
             roles!inner(name)
           `)
-        .eq('roles.name', 'officer')
-        .not('name', 'is', null);
+          .eq('roles.name', 'officer')
+          .not('name', 'is', null);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const officersData = data?.map(officer => ({
-        user_id: officer.user_id,
-        name: officer.name,
-        role_name: officer.roles?.name || 'officer'
-      })) || [];
+        officersData = (data || []).map((officer: any) => ({
+          user_id: officer.user_id,
+          name: officer.name,
+          role_name: officer.roles?.name || 'officer'
+        }));
+      }
 
       setOfficers(officersData);
     } catch (error) {
       console.error('Error fetching officers:', error);
     }
-  };
+  }, [userRole]);
 
   const getStatusCounts = useCallback(() => {
     const total = filteredEmployees.length;
@@ -1019,7 +1144,6 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 </select>
               )}
 
-
               {userRole !== 'clerk' && (
                 <select
                   value={selectedClerk}
@@ -1027,13 +1151,24 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">{t('erms.allClerksGlobalView')}</option>
-                  {clerks.map((clerk) => (
-                    <option key={clerk.user_id} value={clerk.user_id}>
-                      {clerk.name}
-                    </option>
-                  ))}
+                  {
+                    (selectedOfficer
+                      ? clerks.filter((clerk) =>
+                        retirementEmployees.some(
+                          (emp) =>
+                            emp.officer_assigned === selectedOfficer &&
+                            emp.assigned_clerk === clerk.name
+                        )
+                      )
+                      : clerks
+                    ).map((clerk) => (
+                      <option key={clerk.user_id} value={clerk.user_id}>
+                        {clerk.name}
+                      </option>
+                    ))}
                 </select>
               )}
+
               {/* <button
                 onClick={handleDownload}
                 className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
@@ -1046,10 +1181,16 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
         </div>
       </div>
 
-      <div className="p-6 bg-indigo-50 rounded-b-xl shadow-inner">
+      <div className="p-4 bg-indigo-50 rounded-b-xl shadow-inner">
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          <div
+            className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+            onClick={() => {
+              setFilterType('total');
+              setTimeout(() => { }, 0);
+            }}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-indigo-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.totalRetirements')}</p>
@@ -1061,7 +1202,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
             </div>
           </div>
 
-          {/* <div
+          <div
             className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
             onClick={() => {
               setFilterType('upcomingRetirements');
@@ -1080,9 +1221,14 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 <Calendar className="h-6 w-6 text-white" />
               </div>
             </div>
-          </div> */}
+          </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+            onClick={() => {
+              setFilterType('processing');
+              setTimeout(() => { }, 0);
+            }}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.processing')}</p>
@@ -1095,7 +1241,12 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+            onClick={() => {
+              setFilterType('completed');
+              setTimeout(() => { }, 0);
+            }}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.completed')}</p>
@@ -1108,7 +1259,12 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-purple-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+          <div className="bg-white rounded-xl shadow-md border border-purple-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+            onClick={() => {
+              setFilterType('pending');
+              setTimeout(() => { }, 0);
+            }}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-purple-700 font-semibold tracking-wide mb-1 uppercase">{t('erms.pending')}</p>
@@ -1386,7 +1542,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                 <option value="processing">{t('retirementTracker.inProgress')}</option>
                 <option value="completed">{t('retirementTracker.completed')}</option>
               </select>
-
+              {/* 
               {userRole !== 'clerk' && (
                 <select
                   value={selectedClerk}
@@ -1400,7 +1556,7 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                     </option>
                   ))}
                 </select>
-              )}
+              )} */}
 
               <button
                 onClick={clearFilters}
@@ -1549,20 +1705,27 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${employee.retirement_progress_status === 'completed'
-                              ? 'bg-green-100 text-green-800'
-                              : employee.retirement_progress_status === 'processing'
-                                ? 'bg-orange-100 text-orange-800'
-                                : 'bg-purple-100 text-purple-800'
-                              }`}
-                          >
-                            {employee.retirement_progress_status === 'completed' && <CheckCircle className="h-3 w-3 mr-1" />}
-                            {employee.retirement_progress_status === 'processing' && <Clock className="h-3 w-3 mr-1" />}
-                            {employee.retirement_progress_status === 'pending' && <AlertCircle className="h-3 w-3 mr-1" />}
-                            {t(`erms.${employee.retirement_progress_status || 'pending'}`)}
-                          </span>
+                          {(() => {
+                            const raw = employee.retirement_progress_status || "pending";
+                            const normalized =
+                              raw === "in_progress" ? "processing" : raw;
+                            return (
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${normalized === "completed"
+                                    ? "bg-green-100 text-green-800"
+                                    : normalized === "processing"
+                                      ? "bg-orange-100 text-orange-800"
+                                      : "bg-purple-100 text-purple-800"
+                                  }`}
+                              >{normalized === "completed" && (<CheckCircle className="h-3 w-3 mr-1" />)}
+                               {normalized === "processing" && (<Clock className="h-3 w-3 mr-1" />)}
+                               {normalized === "pending" && (<AlertCircle className="h-3 w-3 mr-1" />)}
+                                {t(`erms.${normalized}`)}
+                              </span>
+                            );
+                          })()}
                         </td>
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${employee.pay_commission_status === 'completed'

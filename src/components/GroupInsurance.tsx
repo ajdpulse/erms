@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Users,
@@ -88,6 +88,8 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
           searchTerm: parsed.searchTerm || '',
           selectedDepartment: parsed.selectedDepartment || '',
           selectedClerk: parsed.selectedClerk || '',
+          selectedOfficer: parsed.selectedOfficer || '',
+          filterType: parsed.filterType || '',
           selectedStatus: parsed.selectedStatus || '',
           activeTab: savedTab || 'inProgress',
           currentPage: savedPagination ? JSON.parse(savedPagination).currentPage : 1
@@ -100,6 +102,8 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
       searchTerm: '',
       selectedDepartment: '',
       selectedClerk: '',
+      selectedOfficer: '',
+      filterType: '',
       selectedStatus: '',
       activeTab: 'inProgress',
       currentPage: 1
@@ -109,6 +113,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
   const initialState = getInitialState();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedClerk, setSelectedClerk] = useState(initialState.selectedClerk);
+  const [selectedOfficer, setSelectedOfficer] = useState(initialState.selectedOfficer);
   const [selectedDepartment, setSelectedDepartment] = useState(initialState.selectedDepartment);
   const [selectedStatus, setSelectedStatus] = useState(initialState.selectedStatus);
   const [searchTerm, setSearchTerm] = useState(initialState.searchTerm);
@@ -121,8 +126,10 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
   // Data states
   const [groupInsuranceRecords, setGroupInsuranceRecords] = useState<GroupInsuranceRecord[]>([]);
   const [clerks, setClerks] = useState<ClerkData[]>([]);
+  const [officers, setOfficers] = useState<ClerkData[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<GroupInsuranceRecord[]>([]);
+  const [filterType, setFilterType] = useState<string>('');
 
   const [persistenceEnabled, setPersistenceEnabled] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -134,6 +141,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
         searchTerm,
         selectedDepartment,
         selectedClerk,
+        selectedOfficer,
         selectedStatus,
         timestamp: Date.now()
       };
@@ -146,6 +154,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
   };
 
   useEffect(() => {
+    if (!userRole) return;
     fetchAllData();
 
     setTimeout(() => {
@@ -164,7 +173,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []);
+  }, [userRole]);
 
   // Load modal state (if any) when component initializes
   useEffect(() => {
@@ -202,12 +211,11 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
     if (isInitialized) {
       saveState();
     }
-  }, [searchTerm, selectedDepartment, selectedClerk, selectedStatus, activeTab, currentPage, isInitialized]);
+  }, [searchTerm, selectedDepartment, selectedClerk, selectedOfficer, selectedStatus, filterType, activeTab, currentPage, isInitialized]);
 
   useEffect(() => {
     filterRecords();
-  }, [groupInsuranceRecords, selectedClerk, selectedDepartment, selectedStatus, searchTerm, userRole, userProfile]);
-
+  }, [groupInsuranceRecords, selectedClerk, selectedOfficer, selectedDepartment, selectedStatus, searchTerm, filterType, userRole, userProfile]);
   // New useEffect for tab switch reset
   useEffect(() => {
     setCurrentPage(1);
@@ -223,12 +231,14 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
     }
   }, [filteredRecords, activeTab, currentPage]);
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
+    if (!userRole) return;
     setIsLoading(true);
     try {
       await Promise.all([
         fetchGroupInsuranceRecords(),
         fetchClerks(),
+        fetchOfficers(),
         fetchDepartments()
       ]);
     } catch (error) {
@@ -236,13 +246,13 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userRole]);
 
-const fetchGroupInsuranceRecords = async () => {
-  try {
-    const { data, error } = await ermsClient
-      .from('group_insurance')
-      .select(`
+  const fetchGroupInsuranceRecords = async () => {
+    try {
+      const { data, error } = await ermsClient
+        .from('group_insurance')
+        .select(`
         id,
         emp_id,
         employee_name,
@@ -268,91 +278,154 @@ const fetchGroupInsuranceRecords = async () => {
         year_2010_date,
         year_2020_date
       `)
-      .order('employee_name');
+        .order('employee_name');
 
-    if (error) throw error;
+      if (error) throw error;
 
-    // 🔹 Fetch Panchayatraj & Shalarth IDs
-    const employeeIds = data?.map(x => x.emp_id) || [];
+      // 🔹 Fetch Panchayatraj & Shalarth IDs
+      const employeeIds = data?.map(x => x.emp_id) || [];
 
-    const { data: employeeData } = await ermsClient
-      .from('employee')
-      .select(`
+      const { data: employeeData } = await ermsClient
+        .from('employee')
+        .select(`
         emp_id,
         panchayatrajsevarth_id,
         Shalarth_Id
       `)
-      .in('emp_id', employeeIds);
+        .in('emp_id', employeeIds);
 
-    const employeeMap = new Map(
-      (employeeData || []).map(e => [
-        e.emp_id,
-        {
-          panchayatrajsevarth_id: e.panchayatrajsevarth_id,
-          Shalarth_Id: e.Shalarth_Id
-        }
-      ])
-    );
+      const employeeMap = new Map(
+        (employeeData || []).map(e => [
+          e.emp_id,
+          {
+            panchayatrajsevarth_id: e.panchayatrajsevarth_id,
+            Shalarth_Id: e.Shalarth_Id
+          }
+        ])
+      );
 
-    // ⭐ NEW: Fetch correct retirement_id mapping
-    const { data: retirementLookup } = await ermsClient
-      .from('employee_retirement')
-      .select('emp_id, id');
+      // ⭐ NEW: Fetch correct retirement_id mapping
+      const { data: retirementLookup, error: retirementLookupError } = await ermsClient
+        .from('employee_retirement')
+        .select('emp_id, id, retirement_date');
 
-    const retirementIdMap = new Map(
-      (retirementLookup || []).map(r => [r.emp_id, r.id])
-    );
+      if (retirementLookupError) throw retirementLookupError;
 
-    // ⭐ Correct retirement IDs for tracking lookup
-    const correctRetirementIds =
-      data?.map(rec => retirementIdMap.get(rec.emp_id)) || [];
+      const retirementIdMap = new Map(
+        (retirementLookup || []).map(r => [
+          r.emp_id,
+          { id: r.id, retirement_date: r.retirement_date }
+        ])
+      );
 
-    // ⭐ Fetch file tracking status with correct retirement_id
-    const { data: trackingData } = await ermsClient
-      .from('retirement_file_tracking')
-      .select('retirement_id, status')
-      .in('retirement_id', correctRetirementIds)
-      .in('status', ['assigned', 'completed']);
+      // ⭐ Correct retirement IDs for tracking lookup
+      const correctRetirementIds =
+        data?.map(rec => retirementIdMap.get(rec.emp_id)) || [];
 
-    const trackingMap = new Map(
-      trackingData?.map(t => [t.retirement_id, t.status]) || []
-    );
+      // ⭐ Fetch file tracking status with correct retirement_id
+      const { data: trackingData } = await ermsClient
+        .from('retirement_file_tracking')
+        .select('retirement_id, status')
+        .in('retirement_id', correctRetirementIds)
+        .in('status', ['assigned', 'completed']);
 
-     // 3️⃣ Fetch officer_assigned from retirement_progress table
-              const { data: progressData, error: progressError } = await ermsClient
-                .from('retirement_progress')
-                .select('emp_id, officer_assigned')
-                .in('emp_id', employeeIds);
-        
-              if (progressError) throw progressError;
+      const trackingMap = new Map(
+        trackingData?.map(t => [t.retirement_id, t.status]) || []
+      );
 
-    // 🔹 Merge extra employee fields + correct tracking
-    const recordsWithTracking = data?.map(rec => {
-      const extraFields = employeeMap.get(rec.emp_id) || {
-        panchayatrajsevarth_id: null,
-        Shalarth_Id: null
-      };
+      // 3️⃣ Fetch officer_assigned from retirement_progress table
+      const { data: progressData, error: progressError } = await ermsClient
+        .from('retirement_progress')
+        .select('emp_id, officer_assigned')
+        .in('emp_id', employeeIds);
 
-      const retirementId = retirementIdMap.get(rec.emp_id);
+      if (progressError) throw progressError;
 
-      return {
-        ...rec,
-        in_file_tracking: trackingMap.has(retirementId),
-        file_tracking_status: trackingMap.get(retirementId) || null,
+      // 🔹 Merge extra employee fields + correct tracking
+      const recordsWithTracking = data?.map(rec => {
+        const extraFields = employeeMap.get(rec.emp_id) || {
+          panchayatrajsevarth_id: null,
+          Shalarth_Id: null
+        };
 
-        panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
-        Shalarth_Id: extraFields.Shalarth_Id
-      };
-    }) || [];
+        const retirementId = retirementIdMap.get(rec.emp_id);
+        const retirementInfo = retirementIdMap.get(rec.emp_id) || { id: null, retirement_date: null };
 
-    setGroupInsuranceRecords(recordsWithTracking);
-  } catch (error) {
-    console.error('Error fetching group insurance records:', error);
-  }
-};
 
-  const fetchClerks = async () => {
-    try {
+        return {
+          ...rec,
+          in_file_tracking: trackingMap.has(retirementId),
+          file_tracking_status: trackingMap.get(retirementId) || null,
+          retirement_date: retirementInfo.retirement_date || null,
+          panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
+          Shalarth_Id: extraFields.Shalarth_Id
+        } as GroupInsuranceRecord & { retirement_date?: string | null };
+      });
+
+      setGroupInsuranceRecords(recordsWithTracking);
+    } catch (error) {
+      console.error('Error fetching group insurance records:', error);
+    }
+  };
+
+ const fetchClerks = useCallback(async () => {
+  try {
+    let clerkNames: string[] = [];
+
+    if (userRole === 'officer') {
+      // only clerks assigned to this officer
+      const { data: progressData, error: progressError } = await ermsClient
+        .from('retirement_progress')
+        .select('assigned_clerk')
+        .eq('officer_assigned', user.id);
+
+      if (progressError) throw progressError;
+      clerkNames = Array.from(
+        new Set(
+          (progressData || [])
+            .map((r: any) => r.assigned_clerk)
+            .filter(Boolean)
+        )
+      );
+    } else if (['super_admin', 'admin', 'developer'].includes(userRole ?? '')) {
+      const { data: progressData, error: progressError } = await ermsClient
+        .from('retirement_progress')
+        .select('assigned_clerk');
+
+      if (progressError) throw progressError;
+      clerkNames = Array.from(
+        new Set(
+          (progressData || [])
+            .map((r: any) => r.assigned_clerk)
+            .filter(Boolean)
+        )
+      );
+    }
+
+    let clerksData: ClerkData[] = [];
+
+    // ⭐ FIXED PART — filter clerks by name if clerkNames has values ⭐
+    if (clerkNames.length > 0) {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select(`
+          user_id,
+          name,
+          roles!inner(name)
+        `)
+        .eq('roles.name', 'clerk')
+        .not('name', 'is', null)
+        .in('name', clerkNames);   // <-- THIS WAS MISSING (FIXED)
+
+      if (error) throw error;
+
+      clerksData = (data || []).map((clerk: any) => ({
+        user_id: clerk.user_id,
+        name: clerk.name,
+        role_name: clerk.roles?.name || 'clerk'
+      }));
+    } else {
+      // fallback: fetch all clerks
       const { data, error } = await supabase
         .from('user_roles')
         .select(`
@@ -365,17 +438,87 @@ const fetchGroupInsuranceRecords = async () => {
 
       if (error) throw error;
 
-      const clerksData = data?.map(clerk => ({
+      clerksData = (data || []).map((clerk: any) => ({
         user_id: clerk.user_id,
         name: clerk.name,
         role_name: clerk.roles?.name || 'clerk'
-      })) || [];
-
-      setClerks(clerksData);
-    } catch (error) {
-      console.error('Error fetching clerks:', error);
+      }));
     }
-  };
+
+    console.log('Fetched clerks:', clerksData);
+    setClerks(clerksData);
+  } catch (error) {
+    console.error('Error fetching clerks:', error);
+    setClerks([]);
+  }
+}, [userRole, user.id]);
+
+  const fetchOfficers = useCallback(async () => {
+    try {
+      // 1) If current user is admin/super_admin/developer -> limit officers to those assigned in retirement_progress
+      //    Otherwise fallback to original behaviour (fetch all officers)
+      let officerIds: string[] = [];
+
+      if (['super_admin', 'admin', 'developer'].includes(userRole ?? '')) {
+        // collect officer user_ids from retirement_progress (officer_assigned)
+        const { data: progressData, error: progressError } = await ermsClient
+          .from('retirement_progress')
+          .select('officer_assigned');
+
+        if (progressError) throw progressError;
+        officerIds = Array.from(new Set((progressData || [])
+          .map((r: any) => r.officer_assigned)
+          .filter(Boolean)));
+      }
+
+      let officersData: ClerkData[] = [];
+
+      if (officerIds.length > 0) {
+        // fetch only those officers referenced in retirement_progress
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
+          user_id,
+          name,
+          roles!inner(name)
+        `)
+          .in('user_id', officerIds)
+          .eq('roles.name', 'officer')
+          .not('name', 'is', null);
+
+        if (error) throw error;
+
+        officersData = (data || []).map((officer: any) => ({
+          user_id: officer.user_id,
+          name: officer.name,
+          role_name: officer.roles?.name || 'officer'
+        }));
+      } else {
+        // fallback: fetch all officers (original behaviour)
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
+            user_id,
+            name,
+            roles!inner(name)
+          `)
+          .eq('roles.name', 'officer')
+          .not('name', 'is', null);
+
+        if (error) throw error;
+
+        officersData = (data || []).map((officer: any) => ({
+          user_id: officer.user_id,
+          name: officer.name,
+          role_name: officer.roles?.name || 'officer'
+        }));
+      }
+
+      setOfficers(officersData);
+    } catch (error) {
+      console.error('Error fetching officers:', error);
+    }
+  }, [userRole]);
 
   const fetchDepartments = async () => {
     try {
@@ -394,7 +537,7 @@ const fetchGroupInsuranceRecords = async () => {
       filtered = filtered.filter(record => record.assigned_clerk === userProfile.name);
     }
 
-     if (userRole === 'officer') {
+    if (userRole === 'officer') {
       filtered = filtered.filter(emp => emp.officer_assigned === user.id);
     }
 
@@ -406,6 +549,10 @@ const fetchGroupInsuranceRecords = async () => {
       }
     }
 
+    if (selectedOfficer) {
+      filtered = filtered.filter(emp => emp.officer_assigned === selectedOfficer);
+    }
+
     // Department filter
     if (selectedDepartment) {
       filtered = filtered.filter(record => record.department === selectedDepartment);
@@ -414,6 +561,29 @@ const fetchGroupInsuranceRecords = async () => {
     // Status filter
     if (selectedStatus) {
       filtered = filtered.filter(record => record.status === selectedStatus);
+    }
+
+    if (filterType === 'upcomingRetirements') {
+      const sixMonthsFromNow = new Date();
+      sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+
+      filtered = filtered.filter(emp => {
+        if (!emp.retirement_date) return false;
+        const date = new Date(emp.retirement_date);
+        return date <= sixMonthsFromNow;
+      });
+    }
+
+    if (filterType === 'processing') {
+      filtered = filtered.filter(emp => getProgressStatus(emp) === 'processing');
+    }
+
+    if (filterType === 'completed') {
+      filtered = filtered.filter(emp => getProgressStatus(emp) === 'completed');
+    }
+
+    if (filterType === 'pending') {
+      filtered = filtered.filter(emp => getProgressStatus(emp) === 'pending');
     }
 
     // Search filter
@@ -461,31 +631,31 @@ const fetchGroupInsuranceRecords = async () => {
     return <span className="text-orange-500 text-lg">◐</span>;
   };
 
-const getProgressStatus = (record: GroupInsuranceRecord) => {
-  const progressFields = [
-    record.year_1990,
-    record.year_2003,
-    record.year_2010,
-    record.year_2020
-  ];
+  const getProgressStatus = (record: GroupInsuranceRecord) => {
+    const progressFields = [
+      record.year_1990,
+      record.year_2003,
+      record.year_2010,
+      record.year_2020
+    ];
 
-  const selectedFields = progressFields.filter(field => field && field.trim() !== '');
-  if (selectedFields.length === 0) return 'pending';
+    const selectedFields = progressFields.filter(field => field && field.trim() !== '');
+    if (selectedFields.length === 0) return 'pending';
 
-  const hasNotAvailable = selectedFields.some(field => {
-    const v = field!.trim();
-    return v === 'नाही' || v === 'नाही (Not Available)';
-  });
-  if (hasNotAvailable) return 'processing';
+    const hasNotAvailable = selectedFields.some(field => {
+      const v = field!.trim();
+      return v === 'नाही' || v === 'नाही (Not Available)';
+    });
+    if (hasNotAvailable) return 'processing';
 
-  const allSelectedAreNotNA = selectedFields.every(field => {
-    const v = field!.trim();
-    return v !== 'नाही' && v !== 'नाही (Not Available)';
-  });
-  if (allSelectedAreNotNA) return 'completed';
+    const allSelectedAreNotNA = selectedFields.every(field => {
+      const v = field!.trim();
+      return v !== 'नाही' && v !== 'नाही (Not Available)';
+    });
+    if (allSelectedAreNotNA) return 'completed';
 
-  return 'processing';
-};
+    return 'processing';
+  };
 
   const getStatusCounts = () => {
     const total = filteredRecords.length;
@@ -517,6 +687,18 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
   const getTotalPages = () => {
     const tabRecords = getTabFilteredRecords();
     return Math.ceil(tabRecords.length / recordsPerPage);
+  };
+
+
+  const calculateUpcomingRetirements = () => {
+    const sixMonthsFromNow = new Date();
+    sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+
+    return filteredRecords.filter(emp => {
+      if (!emp.retirement_date) return false;
+      const date = new Date(emp.retirement_date);
+      return date <= sixMonthsFromNow;
+    }).length;
   };
 
   const handleEditRecord = async (record: GroupInsuranceRecord) => {
@@ -590,6 +772,8 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
     setSearchTerm('');
     setSelectedDepartment('');
     setSelectedClerk('');
+    setSelectedOfficer('');
+    setFilterType('');
     setSelectedStatus('');
   };
 
@@ -671,8 +855,13 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
     <div className="space-y-6">
       {/* KPI Cards */}
       {/* Start of New changes to deploy */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div className="bg-white rounded-xl shadow-md border border-indigo-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+          onClick={() => {
+            setFilterType('total');
+            setTimeout(() => { }, 0);
+          }}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-indigo-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.totalCases')}</p>
@@ -684,7 +873,33 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+        <div
+          className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+          onClick={() => {
+            setFilterType('upcomingRetirements');
+            setTimeout(() => { }, 0);
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">
+                {t('erms.upcomingRetirements')}
+              </p>
+              <p className="text-2xl font-extrabold text-orange-800">{calculateUpcomingRetirements()}</p>
+              <p className="text-xs text-orange-600 font-medium">{t('erms.nextSixMonths')}</p>
+            </div>
+            <div className="bg-gradient-to-tr from-orange-500 to-yellow-500 p-3 rounded-2xl shadow-md">
+              <Calendar className="h-6 w-6 text-white" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-md border border-orange-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+          onClick={() => {
+            setFilterType('processing');
+            setTimeout(() => { }, 0);
+          }}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-orange-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.processing')}</p>
@@ -696,7 +911,12 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+        <div className="bg-white rounded-xl shadow-md border border-green-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+          onClick={() => {
+            setFilterType('completed');
+            setTimeout(() => { }, 0);
+          }}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-green-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.completed')}</p>
@@ -708,7 +928,12 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md border border-purple-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5">
+        <div className="bg-white rounded-xl shadow-md border border-purple-300 p-4 hover:shadow-lg transition-shadow duration-300 cursor-pointer transform hover:-translate-y-0.5"
+          onClick={() => {
+            setFilterType('pending');
+            setTimeout(() => { }, 0);
+          }}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-purple-700 font-semibold tracking-wide mb-1 uppercase">{t('retirementTracker.pending')}</p>
@@ -773,62 +998,62 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
                 <span className="text-sm">{t('erms.refresh')}</span>
               </button>
               <button
-  onClick={() => {
-    const data = getTabFilteredRecords(); // export UI-visible data only
+                onClick={() => {
+                  const data = getTabFilteredRecords(); // export UI-visible data only
 
-    if (!data || data.length === 0) {
-      alert("No data available to export");
-      return;
-    }
+                  if (!data || data.length === 0) {
+                    alert("No data available to export");
+                    return;
+                  }
 
-    // UI Table Columns ONLY
-    const uiColumns = [
-      "Shalarth_Id",
-      "panchayatrajsevarth_id",
-      "emp_id",
-      "employee_name",
-      "department",
-      "retirement_date",
-      "age",
-      "assigned_clerk",
-      "year_1990",
-      "year_2003",
-      "year_2010",
-      "year_2020"
-    ];
+                  // UI Table Columns ONLY
+                  const uiColumns = [
+                    "Shalarth_Id",
+                    "panchayatrajsevarth_id",
+                    "emp_id",
+                    "employee_name",
+                    "department",
+                    "retirement_date",
+                    "age",
+                    "assigned_clerk",
+                    "year_1990",
+                    "year_2003",
+                    "year_2010",
+                    "year_2020"
+                  ];
 
-    const headers = uiColumns.join(",");
+                  const headers = uiColumns.join(",");
 
-    const rows = data.map(row =>
-      uiColumns
-        .map(key => {
-          let value = row[key];
+                  const rows = data.map(row =>
+                    uiColumns
+                      .map(key => {
+                        let value = row[key];
 
-          // Format date fields same as UI
-          if (key === "retirement_date" && value) {
-            value = new Date(value).toLocaleDateString();
-          }
+                        // Format date fields same as UI
+                        if (key === "retirement_date" && value) {
+                          value = new Date(value).toLocaleDateString();
+                        }
 
-          return `"${value !== null && value !== undefined ? value : ''}"`;
-        })
-        .join(",")
-    );
+                        return `"${value !== null && value !== undefined ? value : ''}"`;
+                      })
+                      .join(",")
+                  );
 
-    const csvContent = [headers, ...rows].join("\n");
+                  const csvContent = [headers, ...rows].join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "group_insurance_ui_table.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  }}
-  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
->
-  <Download className="h-4 w-4" />
-  <span className="text-sm">{t('common.export')}</span>
-</button>
+                  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = "group_insurance_ui_table.csv";
+                  link.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-300"
+              >
+                <Download className="h-4 w-4" />
+                <span className="text-sm">{t('common.export')}</span>
+              </button>
 
             </div>
           </div>
@@ -868,18 +1093,41 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
               <option value="completed">{t('retirementTracker.completed')}</option>
             </select>
 
+            {['super_admin', 'admin', 'developer'].includes(userRole ?? '') && (
+              <select
+                value={selectedOfficer}
+                onChange={(e) => setSelectedOfficer(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">{t('erms.selectOfficer')}</option>
+                {officers.map(officer => (
+                  <option key={officer.user_id} value={officer.user_id}>{officer.name}</option>
+                ))}
+              </select>
+            )}
+
             {userRole !== 'clerk' && (
               <select
                 value={selectedClerk}
                 onChange={(e) => setSelectedClerk(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">{t('retirementTracker.allClerks')}</option>
-                {clerks.map(clerk => (
-                  <option key={clerk.user_id} value={clerk.user_id}>
-                    {clerk.name}
-                  </option>
-                ))}
+                <option value="">{t('erms.allClerksGlobalView')}</option>
+                {
+                  (selectedOfficer
+                    ? clerks.filter((clerk) =>
+                      filteredRecords.some(
+                        (emp) =>
+                          emp.officer_assigned === selectedOfficer &&
+                          emp.assigned_clerk === clerk.name
+                      )
+                    )
+                    : clerks
+                  ).map((clerk) => (
+                    <option key={clerk.user_id} value={clerk.user_id}>
+                      {clerk.name}
+                    </option>
+                  ))}
               </select>
             )}
 
@@ -957,13 +1205,12 @@ const getProgressStatus = (record: GroupInsuranceRecord) => {
                   return (
                     <tr
                       key={record.id}
-                      className={`hover:bg-blue-50 ${
-                        record.file_tracking_status === 'completed'
-                          ? 'bg-green-50 border-l-4 border-green-400'
-                          : record.in_file_tracking
+                      className={`hover:bg-blue-50 ${record.file_tracking_status === 'completed'
+                        ? 'bg-green-50 border-l-4 border-green-400'
+                        : record.in_file_tracking
                           ? 'bg-yellow-50 border-l-4 border-yellow-400'
                           : ''
-                      }`}
+                        }`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.Shalarth_Id || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.panchayatrajsevarth_id || '-'}</td>
