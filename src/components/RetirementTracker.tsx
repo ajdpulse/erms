@@ -189,7 +189,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
   const [activeMainTab, setActiveMainTab] = useState(getInitialActiveMainTab);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedClerk, setSelectedClerk] = useState(initialFilters.selectedClerk);
-  const [selectedOfficer, setSelectedOfficer] = useState(initialFilters.selectedClerk);
+  const [selectedOfficer, setSelectedOfficer] = useState(initialFilters.selectedOfficer);
   const [selectedDepartment, setSelectedDepartment] = useState(initialFilters.selectedDepartment);
   const [selectedStatus, setSelectedStatus] = useState(initialFilters.selectedStatus);
   const [searchTerm, setSearchTerm] = useState(initialFilters.searchTerm);
@@ -267,7 +267,10 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
 
   useEffect(() => {
     if (!userRole) return;
-    fetchAllData();
+
+    setTimeout(() => {
+      fetchAllData();
+    }, 0);
 
     setTimeout(() => {
       setPersistenceEnabled(true);
@@ -364,12 +367,12 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
   }, [userRole]);
 
 
-  const fetchRetirementProgress = async () => {
-    try {
-      // 1️⃣ Fetch retirement_progress rows
-      const { data: progressData, error: progressError } = await ermsClient
-        .from('retirement_progress')
-        .select(`
+const fetchRetirementProgress = async () => {
+  try {
+    // 1️⃣ Fetch retirement_progress rows
+    const { data: progressData, error: progressError } = await ermsClient
+      .from('retirement_progress')
+      .select(`
         id,
         emp_id,
         employee_name,
@@ -396,96 +399,81 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
         common_progress_date,
         government_decision_march_31_2023,
         overall_comment,
+        Shalarth_Id,
+        panchayatrajsevarth_id,
         created_at,
         updated_at
       `)
-        .order('age', { ascending: false });
+      .order('age', { ascending: false });
 
-      if (progressError) throw progressError;
+    if (progressError) throw progressError;
 
-      const empIds = (progressData || []).map(r => r.emp_id);
+    const empIds = (progressData || []).map(r => r.emp_id);
 
-      const { data: employeeData } = await ermsClient
-        .from('employee')
-        .select(`
-        emp_id,
-        panchayatrajsevarth_id,
-        Shalarth_Id
-      `)
-        .in('emp_id', empIds);
+    // ⭐ Removed: employee table fetch and related mappings (panchayatrajsevarth_id, Shalarth_Id)
 
-      const idMap = new Map(
-        (employeeData || []).map(e => [
-          e.emp_id,
-          {
-            panchayatrajsevarth_id: e.panchayatrajsevarth_id,
-            Shalarth_Id: e.Shalarth_Id
-          }
-        ])
-      );
+    // ⭐ Fetch retirement mapping
+    const { data: retirementLookup, error: retirementLookupError } = await ermsClient
+      .from('employee_retirement')
+      .select('emp_id, id, retirement_date');
 
-      const { data: retirementLookup, error: retirementLookupError } = await ermsClient
-        .from('employee_retirement')
-        .select('emp_id, id, retirement_date');
+    if (retirementLookupError) throw retirementLookupError;
 
-      if (retirementLookupError) throw retirementLookupError;
+    const retirementIdMap = new Map(
+      (retirementLookup || []).map(r => [
+        r.emp_id,
+        { id: r.id, retirement_date: r.retirement_date }
+      ])
+    );
 
-      const retirementIdMap = new Map(
-        (retirementLookup || []).map(r => [
-          r.emp_id,
-          { id: r.id, retirement_date: r.retirement_date }
-        ])
-      );
+    const retirementIds = (progressData || [])
+      .map(e => retirementIdMap.get(e.emp_id)?.id)
+      .filter(Boolean);
 
-      const retirementIds = (progressData || [])
-        .map(e => retirementIdMap.get(e.emp_id)?.id)
-        .filter(Boolean);
+    // ⭐ File tracking data
+    const { data: trackingData } = await ermsClient
+      .from('retirement_file_tracking')
+      .select('retirement_id, status')
+      .in('retirement_id', retirementIds)
+      .in('status', ['assigned', 'completed']);
 
-      const { data: trackingData } = await ermsClient
-        .from('retirement_file_tracking')
-        .select('retirement_id, status')
-        .in('retirement_id', retirementIds)
-        .in('status', ['assigned', 'completed']);
+    const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
 
-      const trackingMap = new Map(trackingData?.map(t => [t.retirement_id, t.status]) || []);
+    // ⭐ Officer assigned mapping
+    const { data: officerData, error: officerError } = await ermsClient
+      .from('retirement_progress')
+      .select('emp_id, officer_assigned')
+      .in('emp_id', empIds || []);
 
-      const { data: officerData, error: officerError } = await ermsClient
-        .from('retirement_progress')
-        .select('emp_id, officer_assigned')
-        .in('emp_id', empIds);
+    if (officerError) throw officerError;
 
-      if (officerError) throw officerError;
+    const officerAssignedMap = new Map(officerData?.map(o => [o.emp_id, o.officer_assigned]) || []);
 
-      const officerAssignedMap = new Map(officerData?.map(o => [o.emp_id, o.officer_assigned]) || []);
+    // ⭐ Merge final employee retirement progress
+    const employeesWithUpdatedStatus = (progressData || []).map(employee => {
+      const calculatedStatus = getProgressStatus(employee);
 
-      const employeesWithUpdatedStatus = (progressData || []).map(employee => {
-        const calculatedStatus = getProgressStatus(employee);
+      const retirementInfo = retirementIdMap.get(employee.emp_id) || {
+        id: null,
+        retirement_date: null
+      };
 
-        const extraFields = idMap.get(employee.emp_id) || {
-          panchayatrajsevarth_id: null,
-          Shalarth_Id: null
-        };
+      return {
+        ...employee,
+        status: calculatedStatus,
+        in_file_tracking: retirementInfo.id ? trackingMap.has(retirementInfo.id) : false,
+        file_tracking_status: retirementInfo.id ? trackingMap.get(retirementInfo.id) || null : null,
+        officer_assigned: officerAssignedMap.get(employee.emp_id) || employee.officer_assigned || null,
+        retirement_date: retirementInfo.retirement_date || null
+      } as RetirementProgress & { retirement_date?: string | null };
+    });
 
-        const retirementInfo = retirementIdMap.get(employee.emp_id) || { id: null, retirement_date: null };
-
-        return {
-          ...employee,
-          status: calculatedStatus,
-          in_file_tracking: retirementInfo.id ? trackingMap.has(retirementInfo.id) : false,
-          file_tracking_status: retirementInfo.id ? trackingMap.get(retirementInfo.id) || null : null,
-          officer_assigned: officerAssignedMap.get(employee.emp_id) || employee.officer_assigned || null,
-          panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
-          Shalarth_Id: extraFields.Shalarth_Id,
-          retirement_date: retirementInfo.retirement_date || null
-        } as RetirementProgress & { retirement_date?: string | null };
-      });
-
-      setRetirementProgress(employeesWithUpdatedStatus);
-    } catch (error) {
-      console.error('Error fetching retirement progress:', error);
-      setRetirementProgress([]); // keep behavior consistent with other fetchers
-    }
-  };
+    setRetirementProgress(employeesWithUpdatedStatus);
+  } catch (error) {
+    console.error('Error fetching retirement progress:', error);
+    setRetirementProgress([]); // keep behavior consistent with other fetchers
+  }
+};
 
   const fetchClerks = useCallback(async () => {
     try {
@@ -1048,7 +1036,7 @@ export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBa
                     {
                       (selectedOfficer
                         ? clerks.filter((clerk) =>
-                          filteredEmployees.some(
+                          (filteredEmployees || []).some(
                             (emp) =>
                               emp.officer_assigned === selectedOfficer &&
                               emp.assigned_clerk === clerk.name

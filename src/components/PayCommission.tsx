@@ -89,6 +89,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
           searchTerm: parsed.searchTerm || '',
           selectedDepartment: parsed.selectedDepartment || '',
           selectedClerk: parsed.selectedClerk || '',
+          selectedOfficer: parsed.selectedOfficer || '',
           filterType: parsed.filterType || '',
           selectedStatus: parsed.selectedStatus || '',
           activeTab: savedTab || 'inProgress',
@@ -156,7 +157,9 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
 
   useEffect(() => {
     if (!userRole) return;
-    fetchAllData();
+    setTimeout(() => {
+      fetchAllData();
+    }, 0);
 
     setTimeout(() => {
       setPersistenceEnabled(true);
@@ -216,7 +219,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     if (isInitialized) {
       saveState();
     }
-  }, [searchTerm, selectedDepartment, selectedClerk, selectedOfficer, selectedStatus, filterType, activeTab, currentPage, isInitialized]);
+  }, [searchTerm, selectedDepartment, selectedClerk, selectedOfficer, selectedStatus, activeTab, currentPage, isInitialized]);
 
   const fetchAllData = useCallback(async () => {
     if (!userRole) return;
@@ -235,11 +238,11 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     }
   }, [userRole]);
 
-  const fetchPayCommissionRecords = async () => {
-    try {
-      const { data, error } = await ermsClient
-        .from('pay_commission')
-        .select(`
+ const fetchPayCommissionRecords = async () => {
+  try {
+    const { data, error } = await ermsClient
+      .from('pay_commission')
+      .select(`
         id,
         emp_id,
         employee_name,
@@ -265,97 +268,72 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
         fourth_pay_comission_date,
         fifth_pay_comission_date,
         sixth_pay_comission_date,
-        seventh_pay_comission_date
-      `)
-        .order('employee_name');
-
-      if (error) throw error;
-
-      const employeeIds = data?.map(x => x.emp_id) || [];
-
-      // 🔹 Fetch Panchayatraj & Shalarth IDs
-      const { data: employeeData } = await ermsClient
-        .from('employee')
-        .select(`
-        emp_id,
+        seventh_pay_comission_date,
         panchayatrajsevarth_id,
         Shalarth_Id
       `)
-        .in('emp_id', employeeIds);
+      .order('employee_name');
 
-      const employeeMap = new Map(
-        (employeeData || []).map(e => [
-          e.emp_id,
-          {
-            panchayatrajsevarth_id: e.panchayatrajsevarth_id,
-            Shalarth_Id: e.Shalarth_Id
-          }
-        ])
-      );
+    if (error) throw error;
 
-      // ⭐ NEW IMPORTANT FIX: Fetch correct retirement_id mapping
-      const { data: retirementLookup, error: retirementLookupError } = await ermsClient
-        .from('employee_retirement')
-        .select('emp_id, id, retirement_date');
+    const employeeIds = data?.map(x => x.emp_id) || [];
 
-      if (retirementLookupError) throw retirementLookupError;
+    // ⭐ Fetch correct retirement_id mapping
+    const { data: retirementLookup, error: retirementLookupError } = await ermsClient
+      .from('employee_retirement')
+      .select('emp_id, id, retirement_date');
 
-      const retirementIdMap = new Map(
-        (retirementLookup || []).map(r => [
-          r.emp_id,
-          { id: r.id, retirement_date: r.retirement_date }
-        ])
-      );
+    if (retirementLookupError) throw retirementLookupError;
 
-      // ⭐ Correct retirement IDs for tracking lookup
-      const correctRetirementIds =
-        data?.map(rec => retirementIdMap.get(rec.emp_id)) || [];
+    const retirementIdMap = new Map(
+      (retirementLookup || []).map(r => [
+        r.emp_id,
+        { id: r.id, retirement_date: r.retirement_date }
+      ])
+    );
 
-      // ⭐ Fetch tracking data using correct retirement IDs
-      const { data: trackingData } = await ermsClient
-        .from('retirement_file_tracking')
-        .select('retirement_id, status')
-        .in('retirement_id', correctRetirementIds)
-        .in('status', ['assigned', 'completed']);
+    const correctRetirementIds =
+      data?.map(rec => retirementIdMap.get(rec.emp_id)) || [];
 
-      const trackingMap = new Map(
-        trackingData?.map(t => [t.retirement_id, t.status]) || []
-      );
+    // ⭐ Fetch tracking data
+    const { data: trackingData } = await ermsClient
+      .from('retirement_file_tracking')
+      .select('retirement_id, status')
+      .in('retirement_id', correctRetirementIds)
+      .in('status', ['assigned', 'completed']);
 
-      // 3️⃣ Fetch officer_assigned from retirement_progress table
-      const { data: progressData, error: progressError } = await ermsClient
-        .from('retirement_progress')
-        .select('emp_id, officer_assigned')
-        .in('emp_id', employeeIds);
+    const trackingMap = new Map(
+      trackingData?.map(t => [t.retirement_id, t.status]) || []
+    );
 
-      if (progressError) throw progressError;
+    // 3️⃣ Fetch officer_assigned from retirement_progress table
+    const { data: progressData, error: progressError } = await ermsClient
+      .from('retirement_progress')
+      .select('emp_id, officer_assigned')
+      .in('emp_id', employeeIds);
 
-      // 🔹 Merge tracking + IDs
-      const recordsWithTracking = data?.map(rec => {
-        const extraFields = employeeMap.get(rec.emp_id) || {
-          panchayatrajsevarth_id: null,
-          Shalarth_Id: null
-        };
+    if (progressError) throw progressError;
 
-        const retirementId = retirementIdMap.get(rec.emp_id);
-        const retirementInfo = retirementIdMap.get(rec.emp_id) || { id: null, retirement_date: null };
+    // 🔹 Merge tracking + retirement info
+    const recordsWithTracking = data?.map(rec => {
+      const retirementInfo = retirementIdMap.get(rec.emp_id) || {
+        id: null,
+        retirement_date: null
+      };
 
+      return {
+        ...rec,
+        in_file_tracking: trackingMap.has(retirementInfo.id),
+        file_tracking_status: trackingMap.get(retirementInfo.id) || null,
+        retirement_date: retirementInfo.retirement_date || null
+      };
+    });
 
-        return {
-          ...rec,
-          in_file_tracking: trackingMap.has(retirementId),
-          file_tracking_status: trackingMap.get(retirementId) || null,
-          retirement_date: retirementInfo.retirement_date || null,
-          panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
-          Shalarth_Id: extraFields.Shalarth_Id
-        } as PayCommissionRecord & { retirement_date?: string | null };
-      });
-
-      setPayCommissionRecords(recordsWithTracking);
-    } catch (error) {
-      console.error('Error fetching pay commission records:', error);
-    }
-  };
+    setPayCommissionRecords(recordsWithTracking);
+  } catch (error) {
+    console.error('Error fetching pay commission records:', error);
+  }
+};
 
   const fetchClerks = useCallback(async () => {
     try {
@@ -509,14 +487,19 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
     }
   }, [userRole]);
 
-  const fetchDepartments = async () => {
-    try {
-      const uniqueDepartments = [...new Set(payCommissionRecords.map(record => record.department).filter(Boolean))];
-      setDepartments(uniqueDepartments);
-    } catch (error) {
-      console.error('Error fetching departments:', error);
-    }
-  };
+    const fetchDepartments = async () => {
+      try {
+        const { data, error } = await ermsClient
+          .from('department')
+          .select('dept_id, department')
+          .order('department');
+  
+        if (error) throw error;
+        setDepartments(data?.map(dept => dept.department) || []);
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+      }
+    };
 
   const filterRecords = () => {
     let filtered = payCommissionRecords;
@@ -1039,7 +1022,7 @@ export const PayCommission: React.FC<PayCommissionProps> = ({ user }) => {
                 {
                   (selectedOfficer
                     ? clerks.filter((clerk) =>
-                      filteredRecords.some(
+                      (filteredRecords || []).some(
                         (emp) =>
                           emp.officer_assigned === selectedOfficer &&
                           emp.assigned_clerk === clerk.name

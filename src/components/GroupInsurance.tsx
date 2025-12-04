@@ -155,7 +155,9 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
 
   useEffect(() => {
     if (!userRole) return;
-    fetchAllData();
+    setTimeout(() => {
+      fetchAllData();
+    }, 0);
 
     setTimeout(() => {
       setPersistenceEnabled(true);
@@ -248,11 +250,11 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
     }
   }, [userRole]);
 
-  const fetchGroupInsuranceRecords = async () => {
-    try {
-      const { data, error } = await ermsClient
-        .from('group_insurance')
-        .select(`
+ const fetchGroupInsuranceRecords = async () => {
+  try {
+    const { data, error } = await ermsClient
+      .from('group_insurance')
+      .select(`
         id,
         emp_id,
         employee_name,
@@ -276,191 +278,163 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
         year_1990_date,
         year_2003_date,
         year_2010_date,
-        year_2020_date
-      `)
-        .order('employee_name');
-
-      if (error) throw error;
-
-      // 🔹 Fetch Panchayatraj & Shalarth IDs
-      const employeeIds = data?.map(x => x.emp_id) || [];
-
-      const { data: employeeData } = await ermsClient
-        .from('employee')
-        .select(`
-        emp_id,
+        year_2020_date,
         panchayatrajsevarth_id,
         Shalarth_Id
       `)
-        .in('emp_id', employeeIds);
+      .order('employee_name');
 
-      const employeeMap = new Map(
-        (employeeData || []).map(e => [
-          e.emp_id,
-          {
-            panchayatrajsevarth_id: e.panchayatrajsevarth_id,
-            Shalarth_Id: e.Shalarth_Id
-          }
-        ])
-      );
+    if (error) throw error;
 
-      // ⭐ NEW: Fetch correct retirement_id mapping
-      const { data: retirementLookup, error: retirementLookupError } = await ermsClient
-        .from('employee_retirement')
-        .select('emp_id, id, retirement_date');
+    const employeeIds = data?.map(x => x.emp_id) || [];
 
-      if (retirementLookupError) throw retirementLookupError;
+    // ⭐ Fetch correct retirement_id mapping
+    const { data: retirementLookup, error: retirementLookupError } = await ermsClient
+      .from('employee_retirement')
+      .select('emp_id, id, retirement_date');
 
-      const retirementIdMap = new Map(
-        (retirementLookup || []).map(r => [
-          r.emp_id,
-          { id: r.id, retirement_date: r.retirement_date }
-        ])
-      );
+    if (retirementLookupError) throw retirementLookupError;
 
-      // ⭐ Correct retirement IDs for tracking lookup
-      const correctRetirementIds =
-        data?.map(rec => retirementIdMap.get(rec.emp_id)) || [];
+    const retirementIdMap = new Map(
+      (retirementLookup || []).map(r => [
+        r.emp_id,
+        { id: r.id, retirement_date: r.retirement_date }
+      ])
+    );
 
-      // ⭐ Fetch file tracking status with correct retirement_id
-      const { data: trackingData } = await ermsClient
-        .from('retirement_file_tracking')
-        .select('retirement_id, status')
-        .in('retirement_id', correctRetirementIds)
-        .in('status', ['assigned', 'completed']);
+    const correctRetirementIds =
+      data?.map(rec => retirementIdMap.get(rec.emp_id)) || [];
 
-      const trackingMap = new Map(
-        trackingData?.map(t => [t.retirement_id, t.status]) || []
-      );
+    // ⭐ Fetch file tracking status
+    const { data: trackingData } = await ermsClient
+      .from('retirement_file_tracking')
+      .select('retirement_id, status')
+      .in('retirement_id', correctRetirementIds)
+      .in('status', ['assigned', 'completed']);
 
-      // 3️⃣ Fetch officer_assigned from retirement_progress table
-      const { data: progressData, error: progressError } = await ermsClient
-        .from('retirement_progress')
-        .select('emp_id, officer_assigned')
-        .in('emp_id', employeeIds);
+    const trackingMap = new Map(
+      trackingData?.map(t => [t.retirement_id, t.status]) || []
+    );
 
-      if (progressError) throw progressError;
+    // 3️⃣ Fetch officer_assigned from retirement_progress table
+    const { data: progressData, error: progressError } = await ermsClient
+      .from('retirement_progress')
+      .select('emp_id, officer_assigned')
+      .in('emp_id', employeeIds);
 
-      // 🔹 Merge extra employee fields + correct tracking
-      const recordsWithTracking = data?.map(rec => {
-        const extraFields = employeeMap.get(rec.emp_id) || {
-          panchayatrajsevarth_id: null,
-          Shalarth_Id: null
-        };
+    if (progressError) throw progressError;
 
-        const retirementId = retirementIdMap.get(rec.emp_id);
-        const retirementInfo = retirementIdMap.get(rec.emp_id) || { id: null, retirement_date: null };
+    // 🔹 Merge final records
+    const recordsWithTracking = data?.map(rec => {
+      const retirementInfo = retirementIdMap.get(rec.emp_id) || {
+        id: null,
+        retirement_date: null
+      };
 
+      return {
+        ...rec,
+        in_file_tracking: trackingMap.has(retirementInfo.id),
+        file_tracking_status: trackingMap.get(retirementInfo.id) || null,
+        retirement_date: retirementInfo.retirement_date || null
+      };
+    });
 
-        return {
-          ...rec,
-          in_file_tracking: trackingMap.has(retirementId),
-          file_tracking_status: trackingMap.get(retirementId) || null,
-          retirement_date: retirementInfo.retirement_date || null,
-          panchayatrajsevarth_id: extraFields.panchayatrajsevarth_id,
-          Shalarth_Id: extraFields.Shalarth_Id
-        } as GroupInsuranceRecord & { retirement_date?: string | null };
-      });
-
-      setGroupInsuranceRecords(recordsWithTracking);
-    } catch (error) {
-      console.error('Error fetching group insurance records:', error);
-    }
-  };
-
- const fetchClerks = useCallback(async () => {
-  try {
-    let clerkNames: string[] = [];
-
-    if (userRole === 'officer') {
-      // only clerks assigned to this officer
-      const { data: progressData, error: progressError } = await ermsClient
-        .from('retirement_progress')
-        .select('assigned_clerk')
-        .eq('officer_assigned', user.id);
-
-      if (progressError) throw progressError;
-      clerkNames = Array.from(
-        new Set(
-          (progressData || [])
-            .map((r: any) => r.assigned_clerk)
-            .filter(Boolean)
-        )
-      );
-    } else if (['super_admin', 'admin', 'developer'].includes(userRole ?? '')) {
-      const { data: progressData, error: progressError } = await ermsClient
-        .from('retirement_progress')
-        .select('assigned_clerk');
-
-      if (progressError) throw progressError;
-      clerkNames = Array.from(
-        new Set(
-          (progressData || [])
-            .map((r: any) => r.assigned_clerk)
-            .filter(Boolean)
-        )
-      );
-    }
-
-    let clerksData: ClerkData[] = [];
-
-    // ⭐ FIXED PART — filter clerks by name if clerkNames has values ⭐
-    if (clerkNames.length > 0) {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select(`
-          user_id,
-          name,
-          roles!inner(name)
-        `)
-        .eq('roles.name', 'clerk')
-        .not('name', 'is', null)
-        .in('name', clerkNames);   // <-- THIS WAS MISSING (FIXED)
-
-      if (error) throw error;
-
-      clerksData = (data || []).map((clerk: any) => ({
-        user_id: clerk.user_id,
-        name: clerk.name,
-        role_name: clerk.roles?.name || 'clerk'
-      }));
-    } else {
-      // fallback: fetch all clerks
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select(`
-          user_id,
-          name,
-          roles!inner(name)
-        `)
-        .eq('roles.name', 'clerk')
-        .not('name', 'is', null);
-
-      if (error) throw error;
-
-      clerksData = (data || []).map((clerk: any) => ({
-        user_id: clerk.user_id,
-        name: clerk.name,
-        role_name: clerk.roles?.name || 'clerk'
-      }));
-    }
-
-    console.log('Fetched clerks:', clerksData);
-    setClerks(clerksData);
+    setGroupInsuranceRecords(recordsWithTracking);
   } catch (error) {
-    console.error('Error fetching clerks:', error);
-    setClerks([]);
+    console.error('Error fetching group insurance records:', error);
   }
-}, [userRole, user.id]);
+};
+
+  const fetchClerks = useCallback(async () => {
+    try {
+      let clerkNames: string[] = [];
+
+      if (userRole === 'officer') {
+        // only clerks assigned to this officer
+        const { data: progressData, error: progressError } = await ermsClient
+          .from('retirement_progress')
+          .select('assigned_clerk')
+          .eq('officer_assigned', user.id);
+
+        if (progressError) throw progressError;
+        clerkNames = Array.from(
+          new Set(
+            (progressData || [])
+              .map((r: any) => r.assigned_clerk)
+              .filter(Boolean)
+          )
+        );
+      } else if (['super_admin', 'admin', 'developer'].includes(userRole ?? '')) {
+        const { data: progressData, error: progressError } = await ermsClient
+          .from('retirement_progress')
+          .select('assigned_clerk');
+
+        if (progressError) throw progressError;
+        clerkNames = Array.from(
+          new Set(
+            (progressData || [])
+              .map((r: any) => r.assigned_clerk)
+              .filter(Boolean)
+          )
+        );
+      }
+
+      let clerksData: ClerkData[] = [];
+
+      // ⭐ FIXED PART — filter clerks by name if clerkNames has values ⭐
+      if (clerkNames.length > 0) {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
+          user_id,
+          name,
+          roles!inner(name)
+        `)
+          .eq('roles.name', 'clerk')
+          .not('name', 'is', null)
+          .in('name', clerkNames);   // <-- THIS WAS MISSING (FIXED)
+
+        if (error) throw error;
+
+        clerksData = (data || []).map((clerk: any) => ({
+          user_id: clerk.user_id,
+          name: clerk.name,
+          role_name: clerk.roles?.name || 'clerk'
+        }));
+      } else {
+        // fallback: fetch all clerks
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select(`
+          user_id,
+          name,
+          roles!inner(name)
+        `)
+          .eq('roles.name', 'clerk')
+          .not('name', 'is', null);
+
+        if (error) throw error;
+
+        clerksData = (data || []).map((clerk: any) => ({
+          user_id: clerk.user_id,
+          name: clerk.name,
+          role_name: clerk.roles?.name || 'clerk'
+        }));
+      }
+
+      console.log('Fetched clerks:', clerksData);
+      setClerks(clerksData);
+    } catch (error) {
+      console.error('Error fetching clerks:', error);
+      setClerks([]);
+    }
+  }, [userRole, user.id]);
 
   const fetchOfficers = useCallback(async () => {
     try {
-      // 1) If current user is admin/super_admin/developer -> limit officers to those assigned in retirement_progress
-      //    Otherwise fallback to original behaviour (fetch all officers)
       let officerIds: string[] = [];
 
       if (['super_admin', 'admin', 'developer'].includes(userRole ?? '')) {
-        // collect officer user_ids from retirement_progress (officer_assigned)
         const { data: progressData, error: progressError } = await ermsClient
           .from('retirement_progress')
           .select('officer_assigned');
@@ -474,7 +448,6 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
       let officersData: ClerkData[] = [];
 
       if (officerIds.length > 0) {
-        // fetch only those officers referenced in retirement_progress
         const { data, error } = await supabase
           .from('user_roles')
           .select(`
@@ -522,8 +495,13 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
 
   const fetchDepartments = async () => {
     try {
-      const uniqueDepartments = [...new Set(groupInsuranceRecords.map(record => record.department).filter(Boolean))];
-      setDepartments(uniqueDepartments);
+      const { data, error } = await ermsClient
+        .from('department')
+        .select('dept_id, department')
+        .order('department');
+
+      if (error) throw error;
+      setDepartments(data?.map(dept => dept.department) || []);
     } catch (error) {
       console.error('Error fetching departments:', error);
     }
@@ -847,9 +825,9 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
     return buttons;
   };
 
-  if (isLoading && groupInsuranceRecords.length === 0) {
-    return <div className="flex justify-center items-center h-64">{t('common.loading')}...</div>;
-  }
+  // if (isLoading && groupInsuranceRecords.length === 0) {
+  //   return <div className="flex justify-center items-center h-64">{t('common.loading')}...</div>;
+  // }
 
   return (
     <div className="space-y-6">
@@ -1116,7 +1094,7 @@ export const GroupInsurance: React.FC<GroupInsuranceProps> = ({ user }) => {
                 {
                   (selectedOfficer
                     ? clerks.filter((clerk) =>
-                      filteredRecords.some(
+                      (filteredRecords || []).some(
                         (emp) =>
                           emp.officer_assigned === selectedOfficer &&
                           emp.assigned_clerk === clerk.name
