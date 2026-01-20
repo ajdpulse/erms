@@ -29,6 +29,7 @@ import type { User as SupabaseUser } from '@supabase/supabase-js';
 interface RetirementTrackerProps {
   user: SupabaseUser;
   onBack: () => void;
+  isInspector?: boolean;
 }
 
 interface RetirementProgress {
@@ -105,7 +106,7 @@ interface RetirementProgressRecord {
   file_tracking_status?: string | null;
 }
 
-export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBack }) => {
+export const RetirementTracker: React.FC<RetirementTrackerProps> = ({ user, onBack, isInspector = false }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
 
@@ -468,7 +469,12 @@ const fetchRetirementProgress = async () => {
       } as RetirementProgress & { retirement_date?: string | null };
     });
 
-    setRetirementProgress(employeesWithUpdatedStatus);
+    // Filter data for inspector role - show only records where officer_assigned matches user.id
+    const filteredData = isInspector 
+      ? employeesWithUpdatedStatus.filter(employee => employee.officer_assigned === user.id)
+      : employeesWithUpdatedStatus;
+
+    setRetirementProgress(filteredData);
   } catch (error) {
     console.error('Error fetching retirement progress:', error);
     setRetirementProgress([]); // keep behavior consistent with other fetchers

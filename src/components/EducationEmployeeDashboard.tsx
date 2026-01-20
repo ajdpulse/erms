@@ -23,6 +23,8 @@ import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface EducationEmployeeDashboardProps {
   onBack: () => void;
+  user?: any;
+  isInspector?: boolean;
 }
 
 interface EducationEmployee {
@@ -81,7 +83,9 @@ interface ClerkData {
   role_name: string;
 }
 
-export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProps> = ({ onBack }) => {
+export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProps> = ({ onBack, user, isInspector }) => {
+  console.log("EducationEmployeeDashboard rendered with isInspector:", isInspector);
+  console.log("EducationEmployeeDashboard rendered with user:", user);
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -440,24 +444,29 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
       const { data, error } = await supabase
         .from('user_roles')
         .select(`
-            user_id,
-            name,
-            roles!inner(name)
-          `)
-        .eq('roles.name', 'officer')
-        .not('name', 'is', null);
+        user_id,
+        name,
+        role_id,
+        roles ( name )
+      `)
+        .in('role_id', [4, 9])
+        .not('name', 'is', null)
+        .order('name', { foreignTable: 'roles', ascending: true })
+        .order('name', { ascending: true });
 
       if (error) throw error;
 
-      const officersData = data?.map(officer => ({
-        user_id: officer.user_id,
-        name: officer.name,
-        role_name: officer.roles?.name || 'officer'
-      })) || [];
+      const usersData =
+        data?.map(item => ({
+          user_id: item.user_id,
+          name: item.name,
+          role_id: item.role_id,
+          role_name: item.roles?.name ?? null,
+        })) || [];
 
-      setOfficers(officersData);
+      setOfficers(usersData);
     } catch (error) {
-      console.error('Error fetching officers:', error);
+      console.error('Error fetching officers & inspectors:', error);
     }
   };
 
@@ -478,7 +487,7 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     }
   };
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async () => {debugger
     if (!educationDeptId) return;
 
     try {
@@ -509,9 +518,15 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
         console.error('Error fetching employees:', error);
         throw error;
       }
-      // console.log('✅ Employees fetched:', data?.length || 0, 'out of', count);
-      setEmployees(data || []);
-      setTotalEmployeeCount(count || data?.length || 0);
+      // Filter data for inspector role - show only records where officer_assigned matches user.id
+      const filteredData = isInspector && user
+        ? (data || []).filter(employee => employee.officer_assigned === user.id)
+        : data || [];
+
+      setEmployees(filteredData);
+      // For inspector role, set the filtered count; otherwise set the total count
+      const displayCount = isInspector ? filteredData.length : (count || data?.length || 0);
+      setTotalEmployeeCount(displayCount);
     } catch (error) {
       console.error('Error fetching employees:', error);
     }
@@ -673,49 +688,49 @@ export const EducationEmployeeDashboard: React.FC<EducationEmployeeDashboardProp
     return { total, upcomingRetirements, assigned, unassigned };
   };
 
-const handleAddEmployee = async () => {
-  setEditingEmployee(null);
+  const handleAddEmployee = async () => {
+    setEditingEmployee(null);
 
-  // 1. Fetch max emp_id from actual employee table
-  const { data, error } = await ermsClient
-    .from("employee")
-    .select("emp_id")
-    .order("emp_id", { ascending: false })
-    .limit(1);
+    // 1. Fetch max emp_id from actual employee table
+    const { data, error } = await ermsClient
+      .from("employee")
+      .select("emp_id")
+      .order("emp_id", { ascending: false })
+      .limit(1);
 
-  let nextId = "1";
+    let nextId = "1";
 
-  if (!error && data && data.length > 0) {
-    const maxId = Number(data[0].emp_id);
-    if (!isNaN(maxId)) {
-      nextId = String(maxId + 1);
+    if (!error && data && data.length > 0) {
+      const maxId = Number(data[0].emp_id);
+      if (!isNaN(maxId)) {
+        nextId = String(maxId + 1);
+      }
     }
-  }
 
-  // 2. Apply to your form structure
-  setFormData({
-    emp_id: nextId,
-    Cadre: "C",
-    date_of_joining: "",
-    employee_name: "",
-    employee_name_en: "",
-    gender: "",
-    Shalarth_Id: "",
-    cast_category: "",
-    appointment_caste_category: "",
-    teacher_type: "",
-    teacher_is_active: true,
-    designation_id: "",
-    date_of_birth: "",
-    taluka: "",
-    office_id: "",
-    assigned_clerk: "",
-    officer_assigned: ""
-  });
+    // 2. Apply to your form structure
+    setFormData({
+      emp_id: nextId,
+      Cadre: "C",
+      date_of_joining: "",
+      employee_name: "",
+      employee_name_en: "",
+      gender: "",
+      Shalarth_Id: "",
+      cast_category: "",
+      appointment_caste_category: "",
+      teacher_type: "",
+      teacher_is_active: true,
+      designation_id: "",
+      date_of_birth: "",
+      taluka: "",
+      office_id: "",
+      assigned_clerk: "",
+      officer_assigned: ""
+    });
 
-  // 3. Open modal
-  setShowAddModal(true);
-};
+    // 3. Open modal
+    setShowAddModal(true);
+  };
 
   const handleEditEmployee = (employee: EducationEmployee) => {
     setFormData(employee);

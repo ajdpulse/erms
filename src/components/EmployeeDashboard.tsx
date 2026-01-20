@@ -21,6 +21,8 @@ import { usePermissions } from '../hooks/usePermissions';
 
 interface EmployeeDashboardProps {
   onBack: () => void;
+  user?: any;
+  isInspector?: boolean;
 }
 
 interface Employee {
@@ -73,7 +75,7 @@ interface ClerkData {
   role_name: string;
 }
 
-export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) => {
+export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack, user, isInspector }) => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -562,11 +564,12 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
 
       const { data, error } = await dataQuery;
 
-      // Define education department ID
-      // console.log('✅ Raw employee data from database:', data);
-      // console.log('📊 Number of employees fetched:', data?.length || 0);
-      // console.log('✅ Employees fetched (excluding education):', data?.length || 0, 'out of', count);
-      setEmployees(data || []);
+      // Filter data for inspector role - show only records where officer_assigned matches user.id
+      const filteredData = isInspector && user
+        ? (data || []).filter(employee => employee.officer_assigned === user.id)
+        : data || [];
+
+      setEmployees(filteredData);
       // console.log('📋 Employees state updated with:', data?.length || 0, 'records');
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -662,24 +665,29 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
       const { data, error } = await supabase
         .from('user_roles')
         .select(`
-          user_id,
-          name,
-          roles!inner(name)
-        `)
-        .eq('roles.name', 'officer')
-        .not('name', 'is', null);
+        user_id,
+        name,
+        role_id,
+        roles ( name )
+      `)
+        .in('role_id', [4, 9])
+        .not('name', 'is', null)
+        .order('name', { foreignTable: 'roles', ascending: true })
+        .order('name', { ascending: true });
 
       if (error) throw error;
 
-      const officersData = data?.map(officer => ({
-        user_id: officer.user_id,
-        name: officer.name,
-        role_name: officer.roles?.name || 'officer'
-      })) || [];
+      const usersData =
+        data?.map(item => ({
+          user_id: item.user_id,
+          name: item.name,
+          role_id: item.role_id,
+          role_name: item.roles?.name ?? null,
+        })) || [];
 
-      setOfficers(officersData);
+      setOfficers(usersData);
     } catch (error) {
-      console.error('Error fetching officers:', error);
+      console.error('Error fetching officers & inspectors:', error);
     }
   };
 
@@ -752,47 +760,47 @@ export const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ onBack }) 
   };
 
 
-const handleAddEmployee = async () => {
-  setEditingEmployee(null);
+  const handleAddEmployee = async () => {
+    setEditingEmployee(null);
 
-  // 1. Fetch the maximum emp_id from the employee table
-  const { data, error } = await ermsClient
-    .from("employee")
-    .select("emp_id")
-    .order("emp_id", { ascending: false })
-    .limit(1);
+    // 1. Fetch the maximum emp_id from the employee table
+    const { data, error } = await ermsClient
+      .from("employee")
+      .select("emp_id")
+      .order("emp_id", { ascending: false })
+      .limit(1);
 
-  let nextId = "1";
+    let nextId = "1";
 
-  if (!error && data && data.length > 0) {
-    const maxId = Number(data[0].emp_id);
-    if (!isNaN(maxId)) {
-      nextId = String(maxId + 1);
+    if (!error && data && data.length > 0) {
+      const maxId = Number(data[0].emp_id);
+      if (!isNaN(maxId)) {
+        nextId = String(maxId + 1);
+      }
     }
-  }
 
-  // 2. Set form with auto-generated next emp_id
-  setFormData({
-    emp_id: nextId,
-    employee_name: "",
-    date_of_birth: "",
-    retirement_date: "",
-    reason: "",
-    assigned_clerk: "",
-    officer_assigned: "",
-    dept_id: "",
-    designation_id: "",
-    tal_id: "",
-    office_id: "",
-    panchayatrajsevarth_id: "",
-    ddo_code: "",
-    Cadre: "",
-    date_of_joining: "",
-  });
+    // 2. Set form with auto-generated next emp_id
+    setFormData({
+      emp_id: nextId,
+      employee_name: "",
+      date_of_birth: "",
+      retirement_date: "",
+      reason: "",
+      assigned_clerk: "",
+      officer_assigned: "",
+      dept_id: "",
+      designation_id: "",
+      tal_id: "",
+      office_id: "",
+      panchayatrajsevarth_id: "",
+      ddo_code: "",
+      Cadre: "",
+      date_of_joining: "",
+    });
 
-  // 3. Open modal
-  setShowAddModal(true);
-};
+    // 3. Open modal
+    setShowAddModal(true);
+  };
 
   const handleEditEmployee = (employee: Employee) => {
     setEditingEmployee(employee);
@@ -908,7 +916,7 @@ const handleAddEmployee = async () => {
           .from('employee')
           .update(employeeData)
           .eq('emp_id', editingEmployee.emp_id);
-        if (error) throw error;   
+        if (error) throw error;
 
         // Show success message for update
         alert(t('common.success') + ': Employee updated successfully');
@@ -1026,7 +1034,7 @@ const handleAddEmployee = async () => {
 
   // If education tab is selected, render the education component
   if (activeTab === 'education') {
-    return <EducationEmployeeDashboard onBack={() => setActiveTab('general')} />;
+    return <EducationEmployeeDashboard onBack={() => setActiveTab('general')} user={user} isInspector={isInspector} />;
   }
 
   return (

@@ -681,9 +681,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSignOut }) => {
     
     let filteredSystems = systems;
     
-    // Filter by device type - but allow all systems on both platforms for developer role
-    if (isMobile && userRole !== 'developer') {
-      // Mobile: Show only FIMS and E-estimate (unless developer)
+    // Filter by device type - but allow all systems on both platforms for developer and inspector roles
+    if (isMobile && userRole !== 'developer' && userRole !== 'inspector') {
+      // Mobile: Show only FIMS and E-estimate (unless developer or inspector)
       filteredSystems = systems.filter(system => system.id === 'fims' || system.id === 'estimate');
     }
     
@@ -691,6 +691,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSignOut }) => {
     
     // Filter by user permissions
     const accessibleSystems = filteredSystems.filter(system => {
+      // Inspector role gets special access to FIMS and ERMS
+      if (userRole === 'inspector') {
+        return system.id === 'fims' || system.id === 'erms';
+      }
+      
       // Check if user has read access to this application
       const hasPermission = hasAccess(system.applicationName, 'read');
       //console.log(`🔐 System ${system.id} (${system.applicationName}): ${hasPermission ? '✅ ALLOWED' : '❌ DENIED'}`);
@@ -748,7 +753,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, onSignOut }) => {
   if (selectedApp) {
     // Special handling for ERMS
     if (selectedApp === 'erms') {
-      return <ERMSDashboard user={user} onBack={handleBackToDashboard} />;
+      return <ERMSDashboard user={user} onBack={handleBackToDashboard} isInspector={userRole === 'inspector'} />;
     }
     
     // Special handling for FIMS (iframe)

@@ -27,6 +27,7 @@ import { FileTracking } from './FileTracking';
 interface RetirementDashboardProps {
   user: SupabaseUser;
   onBack: () => void;
+  isInspector?: boolean;
 }
 
 interface Department {
@@ -83,7 +84,7 @@ interface EditingEmployee extends RetirementEmployee {
   // All fields are already included in RetirementEmployee
 }
 
-export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, onBack }) => {
+export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, onBack, isInspector = false }) => {
   const { t } = useTranslation();
   const { userRole, userProfile } = usePermissions(user);
   const [designations, setDesignations] = useState<Designation[]>([]);
@@ -645,7 +646,10 @@ export const RetirementDashboard: React.FC<RetirementDashboardProps> = ({ user, 
           };
         }) || [];
 
-      setRetirementEmployees(employeesWithTracking);
+      const filteredData = isInspector && user
+        ? (employeesWithTracking || []).filter(employee => employee.officer_assigned === user.id)
+        : employeesWithTracking || [];
+      setRetirementEmployees(filteredData);
     } catch (error) {
       console.error('Error fetching retirement employees:', error);
       setRetirementEmployees([]);

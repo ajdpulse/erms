@@ -32,9 +32,11 @@ import { SessionTimeoutManager, SESSION_CONFIG } from '../utils/security';
 
 interface ERMSDashboardProps {
   user: SupabaseUser;
+  isInspector?: boolean;
+  onBack?: () => void;
 }
 
-export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
+export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user, isInspector = false, onBack }) => {
   const { t } = useTranslation();
   const { hasAccess } = usePermissions(user);
 
@@ -61,7 +63,9 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
   };
 
   const handleBackToMain = () => {
-    if (window && window.location) {
+    if (onBack) {
+      onBack();
+    } else if (window && window.location) {
       localStorage.removeItem('ermsActiveModule');
       window.location.reload(); // or redirect to login
     }
@@ -154,6 +158,10 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
 
   const getAccessibleModules = () => {
     return modules.filter(module => {
+      // Inspector role gets access to all 'read' permission modules and 'write' modules like retirement-tracker
+      if (isInspector && (module.requiredPermission === 'read' || module.requiredPermission === 'write')) {
+        return true;
+      }
       return hasAccess('erms', module.requiredPermission);
     });
   };
@@ -162,7 +170,15 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
 
   const renderModuleContent = () => {
     const activeModuleConfig = modules.find(m => m.id === activeModule);
-    const hasModuleAccess = activeModuleConfig && hasAccess('erms', activeModuleConfig.requiredPermission);
+    let hasModuleAccess = false;
+    if (activeModuleConfig) {
+      // Inspector role gets access to all 'read' permission modules and 'write' modules
+      if (isInspector && (activeModuleConfig.requiredPermission === 'read' || activeModuleConfig.requiredPermission === 'write')) {
+        hasModuleAccess = true;
+      } else {
+        hasModuleAccess = hasAccess('erms', activeModuleConfig.requiredPermission);
+      }
+    }
 
     if (!hasModuleAccess && activeModuleConfig) {
       return (
@@ -186,16 +202,16 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
     return (
       <>
         <div style={{ display: activeModule === 'employee-dashboard' ? 'block' : 'none' }}>
-          <EmployeeDashboard onBack={handleBackToMain} />
+          <EmployeeDashboard onBack={handleBackToMain} user={user} isInspector={isInspector} />
         </div>
         <div style={{ display: activeModule === 'organization-setup' ? 'block' : 'none' }}>
           <OrganizationSetup onBack={handleBackToMain} />
         </div>
         <div style={{ display: activeModule === 'retirement-dashboard' ? 'block' : 'none' }}>
-          <RetirementDashboard user={user} onBack={handleBackToMain} />
+          <RetirementDashboard user={user} onBack={handleBackToMain} isInspector={isInspector} />
         </div>
         <div style={{ display: activeModule === 'retirement-tracker' ? 'block' : 'none' }}>
-          <RetirementTracker user={user} onBack={handleBackToMain} />
+          <RetirementTracker user={user} onBack={handleBackToMain} isInspector={isInspector} />
         </div>
         <div style={{ display: activeModule === 'retirement-file-tracker' ? 'block' : 'none' }}>
           <div className="p-8 text-center">
@@ -205,7 +221,7 @@ export const ERMSDashboard: React.FC<ERMSDashboardProps> = ({ user }) => {
           </div>
         </div>
         <div style={{ display: activeModule === 'custom-reports' ? 'block' : 'none' }}>
-          <CustomReports user={user} onBack={handleBackToMain} />
+          <CustomReports user={user} onBack={handleBackToMain} isInspector={isInspector} />
         </div>
         <div style={{ display: activeModule === 'instructions' ? 'block' : 'none' }}>
           <InstructionsDashboard user={user} onBack={handleBackToMain} />
